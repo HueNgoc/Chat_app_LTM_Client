@@ -10,82 +10,99 @@ import java.awt.FlowLayout;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.BorderFactory;
-
-
+import javax.swing.DefaultListModel;
+import javax.swing.JOptionPane;
+import network.ClientSocket;
 
 /**
  *
  * @author Admin
  */
 public class Dashboard extends javax.swing.JFrame {
-     private String myEmail;
+
+    private String myEmail;
     private String myName;
-    
-    
+    private int currentGroupId = -1;
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(Dashboard.class.getName());
 
     /**
      * Creates new form Dashboard
      */
     public Dashboard(String email, String name) {
+        initComponents();
         this.myEmail = email;
         this.myName = name;
-        initComponents();
 
         this.setTitle("Chat App - " + name);
         lblAvt.setText(name);
+        listGroup.setModel(new DefaultListModel<>());
 
+        loadGroups();
         pnBody.setLayout(new BoxLayout(pnBody, BoxLayout.Y_AXIS));
     }
-    
-    
+
     public void addMessage(String text, boolean isMe) {
-    // 1. Tạo một JPanel làm một "Hàng" (Row) chứa tin nhắn
-    JPanel pnRow = new JPanel();
-    pnRow.setBackground(Color.WHITE); // Màu nền trùng với pnBody
-    
-    // Nếu là mình (isMe = true) -> Căn phải (RIGHT). Người khác -> Căn trái (LEFT)
-    if (isMe) {
-        pnRow.setLayout(new FlowLayout(FlowLayout.RIGHT));
-    } else {
-        pnRow.setLayout(new FlowLayout(FlowLayout.LEFT));
+        // 1. Tạo một JPanel làm một "Hàng" (Row) chứa tin nhắn
+        JPanel pnRow = new JPanel();
+        pnRow.setBackground(Color.WHITE); // Màu nền trùng với pnBody
+
+        // Nếu là mình (isMe = true) -> Căn phải (RIGHT). Người khác -> Căn trái (LEFT)
+        if (isMe) {
+            pnRow.setLayout(new FlowLayout(FlowLayout.RIGHT));
+        } else {
+            pnRow.setLayout(new FlowLayout(FlowLayout.LEFT));
+        }
+
+        // 2. Tạo cục Bubble (Dùng class BubblePanel vừa tạo ở Bước 2)
+        // Màu xanh (CYAN) nếu là mình, màu Xám (LIGHT_GRAY) nếu là bạn
+        BubblePanel pnBubble = new BubblePanel(isMe ? new Color(0, 197, 255) : Color.LIGHT_GRAY);
+
+        // 3. Tạo Label chứa chữ
+        JLabel lblContent = new JLabel(text);
+        lblContent.setForeground(isMe ? Color.WHITE : Color.BLACK); // Chữ trắng hoặc đen
+        lblContent.setFont(new java.awt.Font("Arial", 0, 14));
+
+        // Thêm khoảng cách (Padding) cho chữ không dính sát viền
+        lblContent.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+
+        // 4. Gắn Label vào Bubble, gắn Bubble vào Hàng
+        pnBubble.add(lblContent);
+        pnRow.add(pnBubble);
+
+        // 5. Gắn Hàng vào Body chính
+        pnBody.add(pnRow);
+
+        // 6. Cập nhật lại giao diện (Bắt buộc)
+        pnBody.revalidate();
+        pnBody.repaint();
+
+        // 7. Tự động cuộn xuống dưới cùng
+        scrollToBottom();
     }
 
-    // 2. Tạo cục Bubble (Dùng class BubblePanel vừa tạo ở Bước 2)
-    // Màu xanh (CYAN) nếu là mình, màu Xám (LIGHT_GRAY) nếu là bạn
-    BubblePanel pnBubble = new BubblePanel(isMe ? new Color(0, 197, 255) : Color.LIGHT_GRAY);
-    
-    // 3. Tạo Label chứa chữ
-    JLabel lblContent = new JLabel(text);
-    lblContent.setForeground(isMe ? Color.WHITE : Color.BLACK); // Chữ trắng hoặc đen
-    lblContent.setFont(new java.awt.Font("Arial", 0, 14));
-    
-    // Thêm khoảng cách (Padding) cho chữ không dính sát viền
-    lblContent.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-
-    // 4. Gắn Label vào Bubble, gắn Bubble vào Hàng
-    pnBubble.add(lblContent);
-    pnRow.add(pnBubble);
-
-    // 5. Gắn Hàng vào Body chính
-    pnBody.add(pnRow);
-
-    // 6. Cập nhật lại giao diện (Bắt buộc)
-    pnBody.revalidate();
-    pnBody.repaint();
-    
-    // 7. Tự động cuộn xuống dưới cùng
-    scrollToBottom();
-}
-
 // Hàm phụ để cuộn xuống dưới
-private void scrollToBottom() {
-    javax.swing.SwingUtilities.invokeLater(() -> {
-        // jScrollPane1 là tên cái ScrollPane của bạn
-        javax.swing.JScrollBar vertical = jScrollPane1.getVerticalScrollBar();
-        vertical.setValue(vertical.getMaximum());
-    });
-}
+    private void scrollToBottom() {
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            // jScrollPane1 là tên cái ScrollPane của bạn
+            javax.swing.JScrollBar vertical = jScrollPane1.getVerticalScrollBar();
+            vertical.setValue(vertical.getMaximum());
+        });
+    }
+
+    private void loadGroups() {
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_GROUPS;" + myEmail);
+
+        if (res.startsWith("GROUP_LIST")) {
+            DefaultListModel<String> model = new DefaultListModel<>();
+            String[] arr = res.split(";");
+
+            for (int i = 1; i < arr.length; i++) {
+                model.addElement(arr[i]); // "id:name"
+            }
+            listGroup.setModel(model);
+        }
+    }
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -96,23 +113,25 @@ private void scrollToBottom() {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPopupMenu1 = new javax.swing.JPopupMenu();
+        jPopupMenuFriends = new javax.swing.JPopupMenu();
         btnBlock = new javax.swing.JMenuItem();
         btnView = new javax.swing.JMenuItem();
+        jPopupMenuGroups = new javax.swing.JPopupMenu();
+        btnLeaveGroup = new javax.swing.JMenuItem();
         jSplitPane1 = new javax.swing.JSplitPane();
         jPanel2 = new javax.swing.JPanel();
         lblAvt = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
+        btnCreateGroup = new javax.swing.JButton();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         jPanel1 = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
-        jList1 = new javax.swing.JList<>();
+        listFriend = new javax.swing.JList<>();
         jPanel4 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
-        jList2 = new javax.swing.JList<>();
+        listGroup = new javax.swing.JList<>();
         jPanel3 = new javax.swing.JPanel();
         jPanel5 = new javax.swing.JPanel();
-        jLabel2 = new javax.swing.JLabel();
+        lblName = new javax.swing.JLabel();
         jButton2 = new javax.swing.JButton();
         jScrollPane3 = new javax.swing.JScrollPane();
         pnBody = new javax.swing.JPanel();
@@ -120,7 +139,7 @@ private void scrollToBottom() {
         jButton3 = new javax.swing.JButton();
         txtMessage = new javax.swing.JTextField();
         jButton4 = new javax.swing.JButton();
-        jButton5 = new javax.swing.JButton();
+        btnSend = new javax.swing.JButton();
 
         btnBlock.setText("Block");
         btnBlock.setActionCommand("");
@@ -134,7 +153,7 @@ private void scrollToBottom() {
                 btnBlockActionPerformed(evt);
             }
         });
-        jPopupMenu1.add(btnBlock);
+        jPopupMenuFriends.add(btnBlock);
 
         btnView.setText("View Profile");
         btnView.addActionListener(new java.awt.event.ActionListener() {
@@ -142,7 +161,15 @@ private void scrollToBottom() {
                 btnViewActionPerformed(evt);
             }
         });
-        jPopupMenu1.add(btnView);
+        jPopupMenuFriends.add(btnView);
+
+        btnLeaveGroup.setText("Leave Group");
+        btnLeaveGroup.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnLeaveGroupActionPerformed(evt);
+            }
+        });
+        jPopupMenuGroups.add(btnLeaveGroup);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -152,21 +179,31 @@ private void scrollToBottom() {
 
         lblAvt.setText("Avt");
 
-        jButton1.setText("Create Group");
+        btnCreateGroup.setText("Create Group");
+        btnCreateGroup.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnCreateGroupActionPerformed(evt);
+            }
+        });
 
         jTabbedPane1.setToolTipText("");
+        jTabbedPane1.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                jTabbedPane1MouseClicked(evt);
+            }
+        });
 
-        jList1.setModel(new javax.swing.AbstractListModel<String>() {
+        listFriend.setModel(new javax.swing.AbstractListModel<String>() {
             String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
             public int getSize() { return strings.length; }
             public String getElementAt(int i) { return strings[i]; }
         });
-        jList1.addMouseListener(new java.awt.event.MouseAdapter() {
+        listFriend.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseReleased(java.awt.event.MouseEvent evt) {
-                jList1MouseReleased(evt);
+                listFriendMouseReleased(evt);
             }
         });
-        jScrollPane1.setViewportView(jList1);
+        jScrollPane1.setViewportView(listFriend);
 
         javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
         jPanel1.setLayout(jPanel1Layout);
@@ -183,12 +220,19 @@ private void scrollToBottom() {
 
         jTabbedPane1.addTab("Friends", jPanel1);
 
-        jList2.setModel(new javax.swing.AbstractListModel<String>() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public String getElementAt(int i) { return strings[i]; }
+        listGroup.setComponentPopupMenu(jPopupMenuGroups);
+        listGroup.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                listGroupMouseClicked(evt);
+            }
+            public void mousePressed(java.awt.event.MouseEvent evt) {
+                listGroupMousePressed(evt);
+            }
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                listGroupMouseReleased(evt);
+            }
         });
-        jScrollPane2.setViewportView(jList2);
+        jScrollPane2.setViewportView(listGroup);
 
         javax.swing.GroupLayout jPanel4Layout = new javax.swing.GroupLayout(jPanel4);
         jPanel4.setLayout(jPanel4Layout);
@@ -211,7 +255,7 @@ private void scrollToBottom() {
                 .addContainerGap()
                 .addComponent(lblAvt, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jButton1)
+                .addComponent(btnCreateGroup)
                 .addContainerGap())
             .addComponent(jTabbedPane1)
         );
@@ -221,7 +265,7 @@ private void scrollToBottom() {
                 .addGap(15, 15, 15)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(lblAvt)
-                    .addComponent(jButton1))
+                    .addComponent(btnCreateGroup))
                 .addGap(18, 18, 18)
                 .addComponent(jTabbedPane1))
         );
@@ -230,7 +274,7 @@ private void scrollToBottom() {
 
         jSplitPane1.setLeftComponent(jPanel2);
 
-        jLabel2.setText("Name/ Group");
+        lblName.setText("Name/ Group");
 
         jButton2.setText("jButton2");
         jButton2.addActionListener(new java.awt.event.ActionListener() {
@@ -245,7 +289,7 @@ private void scrollToBottom() {
             jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jButton2)
                 .addGap(38, 38, 38))
@@ -255,7 +299,7 @@ private void scrollToBottom() {
             .addGroup(jPanel5Layout.createSequentialGroup()
                 .addGap(16, 16, 16)
                 .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel2, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jButton2))
                 .addContainerGap(16, Short.MAX_VALUE))
         );
@@ -279,11 +323,11 @@ private void scrollToBottom() {
             }
         });
 
-        jButton5.setText("Send");
-        jButton5.setActionCommand("");
-        jButton5.addActionListener(new java.awt.event.ActionListener() {
+        btnSend.setText("Send");
+        btnSend.setActionCommand("");
+        btnSend.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton5ActionPerformed(evt);
+                btnSendActionPerformed(evt);
             }
         });
 
@@ -300,7 +344,7 @@ private void scrollToBottom() {
                         .addComponent(jButton4))
                     .addComponent(txtMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addComponent(jButton5)
+                .addComponent(btnSend)
                 .addContainerGap(44, Short.MAX_VALUE))
         );
         jPanel7Layout.setVerticalGroup(
@@ -309,7 +353,7 @@ private void scrollToBottom() {
                 .addGap(32, 32, 32)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(txtMessage, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton5))
+                    .addComponent(btnSend))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jButton3)
@@ -361,70 +405,77 @@ private void scrollToBottom() {
     private void btnViewActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnViewActionPerformed
         // TODO add your handling code here:
         // 1. Lấy user đang chọn
-    String selectedUser = jList1.getSelectedValue();
-    
-    if (selectedUser != null) {
-        // 2. Mở form Profile hoặc hiển thị thông tin
-        // Ví dụ: new ProfileView(selectedUser).setVisible(true);
-        javax.swing.JOptionPane.showMessageDialog(this, "Đang xem profile của: " + selectedUser);
-    }
+        String selectedUser = listFriend.getSelectedValue();
+
+        if (selectedUser != null) {
+            // 2. Mở form Profile hoặc hiển thị thông tin
+            // Ví dụ: new ProfileView(selectedUser).setVisible(true);
+            javax.swing.JOptionPane.showMessageDialog(this, "Đang xem profile của: " + selectedUser);
+        }
     }//GEN-LAST:event_btnViewActionPerformed
 
     private void btnBlockActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBlockActionPerformed
         // TODO add your handling code here:
         // Lấy tên người đang bị chọn trong List
-    String selectedUser = jList1.getSelectedValue();
-    
-    if (selectedUser != null) {
-        // Code gửi lệnh chặn lên Server (Sau này sẽ viết)
-        // Ví dụ: client.sendRequest("BLOCK;" + selectedUser);
-        
-        javax.swing.JOptionPane.showMessageDialog(this, "Đã chặn user: " + selectedUser);
-    }
+        String selectedUser = listFriend.getSelectedValue();
+
+        if (selectedUser != null) {
+            // Code gửi lệnh chặn lên Server (Sau này sẽ viết)
+            // Ví dụ: client.sendRequest("BLOCK;" + selectedUser);
+
+            javax.swing.JOptionPane.showMessageDialog(this, "Đã chặn user: " + selectedUser);
+        }
     }//GEN-LAST:event_btnBlockActionPerformed
 
     private void btnBlockMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_btnBlockMouseReleased
-       
+
     }//GEN-LAST:event_btnBlockMouseReleased
 
-    private void jList1MouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jList1MouseReleased
+    private void listFriendMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listFriendMouseReleased
         // TODO add your handling code here:
-         // TODO add your handling code here:
+        // TODO add your handling code here:
         // Kiểm tra xem có phải là click chuột phải không (Right Click)
-    if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
-        
-        // 1. Lấy vị trí con chuột đang trỏ vào dòng nào trong List
-        int index = jList1.locationToIndex(evt.getPoint());
-        
-        // 2. Chọn dòng đó (bôi đen) để người dùng biết mình đang click vào ai
-        jList1.setSelectedIndex(index);
-        
-        // 3. Nếu trỏ trúng vào một dòng hợp lệ (không phải vùng trắng)
-        if (index >= 0 && jList1.isSelectedIndex(index)) {
-            // Hiện cái Menu (jPopupMenu1) ngay tại vị trí con chuột
-            jPopupMenu1.show(evt.getComponent(), evt.getX(), evt.getY());
+        if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+
+            // 1. Lấy vị trí con chuột đang trỏ vào dòng nào trong List
+            int index = listFriend.locationToIndex(evt.getPoint());
+
+            // 2. Chọn dòng đó (bôi đen) để người dùng biết mình đang click vào ai
+            listFriend.setSelectedIndex(index);
+
+            // 3. Nếu trỏ trúng vào một dòng hợp lệ (không phải vùng trắng)
+            if (index >= 0 && listFriend.isSelectedIndex(index)) {
+                // Hiện cái Menu (jPopupMenu1) ngay tại vị trí con chuột
+                jPopupMenuFriends.show(evt.getComponent(), evt.getX(), evt.getY());
+            }
         }
-    }
-    }//GEN-LAST:event_jList1MouseReleased
+    }//GEN-LAST:event_listFriendMouseReleased
 
     private void txtMessageActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtMessageActionPerformed
         // TODO add your handling code here:
+        btnSend.doClick();
     }//GEN-LAST:event_txtMessageActionPerformed
 
-    private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
+    private void btnSendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendActionPerformed
         // TODO add your handling code here:
+        if (currentGroupId == -1) {
+            JOptionPane.showMessageDialog(this, "Chưa chọn group");
+            return;
+        }
+
         String text = txtMessage.getText().trim();
-    if(!text.isEmpty()){
-        // Giả lập gửi tin nhắn của mình (True)
-        addMessage(text, true);
-        
-        // Giả lập người kia trả lời (False) sau 1 giây (để test giao diện thôi)
-        // Trong thực tế đoạn này sẽ là khi nhận tin từ Server
-        addMessage("Mình đã nhận được: " + text, false);
-        
-        txtMessage.setText(""); // Xóa ô nhập
-    }
-    }//GEN-LAST:event_jButton5ActionPerformed
+        if (text.isEmpty()) {
+            return;
+        }
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("SEND_GROUP;" + myEmail + ";" + currentGroupId + ";" + text);
+
+        if (res.startsWith("SEND_GROUP_SUCCESS")) {
+            addMessage("Me: " + text, true);
+            txtMessage.setText("");
+        }
+    }//GEN-LAST:event_btnSendActionPerformed
 
     private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
         // TODO add your handling code here:
@@ -434,32 +485,128 @@ private void scrollToBottom() {
         // TODO add your handling code here:
     }//GEN-LAST:event_jButton2ActionPerformed
 
-  
+    private void btnCreateGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCreateGroupActionPerformed
+        // TODO add your handling code here:
+        String groupName = JOptionPane.showInputDialog(this, "Tên nhóm:");
+        if (groupName != null) {
+            String res = ClientSocket.getInstance()
+                    .sendRequest("CREATE_GROUP;" + myEmail + ";" + groupName);
+
+            if (res.startsWith("CREATE_GROUP_SUCCESS")) {
+                loadGroups();
+            }
+        }
+
+    }//GEN-LAST:event_btnCreateGroupActionPerformed
+
+    private void btnLeaveGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLeaveGroupActionPerformed
+        // TODO add your handling code here:
+        String selected = listGroup.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
+
+        int groupId = Integer.parseInt(selected.split(":")[0]);
+
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "Bạn có chắc muốn rời nhóm?",
+                "Xác nhận",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("LEAVE_GROUP;" + myEmail + ";" + groupId);
+
+        if (res.equals("LEAVE_GROUP_SUCCESS")) {
+            loadGroups();
+        } else {
+            JOptionPane.showMessageDialog(this, "Rời nhóm thất bại");
+        }
+    }//GEN-LAST:event_btnLeaveGroupActionPerformed
+
+    private void listGroupMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listGroupMouseReleased
+        // TODO add your handling code here:
+    }//GEN-LAST:event_listGroupMouseReleased
+
+    private void listGroupMousePressed(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listGroupMousePressed
+        // TODO add your handling code here:
+        int index = listGroup.locationToIndex(evt.getPoint());
+        if (index >= 0) {
+            listGroup.setSelectedIndex(index);
+        }
+    }//GEN-LAST:event_listGroupMousePressed
+
+    private void jTabbedPane1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTabbedPane1MouseClicked
+        // TODO add your handling code here:
+
+    }//GEN-LAST:event_jTabbedPane1MouseClicked
+
+    private void listGroupMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listGroupMouseClicked
+        // TODO add your handling code here:
+        String selected = listGroup.getSelectedValue();
+        if (selected != null) {
+            String[] parts = selected.split(":");
+            currentGroupId = Integer.parseInt(parts[0]);
+            lblName.setText(parts[1]); // Hiển thị tên group
+
+            // 1. Clear pnBody để load lại message
+            pnBody.removeAll();
+            pnBody.revalidate();
+            pnBody.repaint();
+
+            // 2. Lấy lịch sử tin nhắn từ server
+            String res = ClientSocket.getInstance()
+                    .sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
+
+            if (res.startsWith("GROUP_MESSAGES")) {
+                String[] msgs = res.split(";");
+                // Bỏ "GROUP_MESSAGES" ở index 0
+                for (int i = 1; i < msgs.length; i++) {
+                    String[] msgParts = msgs[i].split(":", 3); // email, fullname, content
+                    String senderEmail = msgParts[0];
+                    String senderName = msgParts[1];
+                    String content = msgParts[2];
+
+                    String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
+                    addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+                }
+
+            }
+        }
+    }//GEN-LAST:event_listGroupMouseClicked
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem btnBlock;
+    private javax.swing.JButton btnCreateGroup;
+    private javax.swing.JMenuItem btnLeaveGroup;
+    private javax.swing.JButton btnSend;
     private javax.swing.JMenuItem btnView;
-    private javax.swing.JButton jButton1;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton4;
-    private javax.swing.JButton jButton5;
-    private javax.swing.JLabel jLabel2;
-    private javax.swing.JList<String> jList1;
-    private javax.swing.JList<String> jList2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel7;
-    private javax.swing.JPopupMenu jPopupMenu1;
+    private javax.swing.JPopupMenu jPopupMenuFriends;
+    private javax.swing.JPopupMenu jPopupMenuGroups;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JSplitPane jSplitPane1;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JLabel lblAvt;
+    private javax.swing.JLabel lblName;
+    private javax.swing.JList<String> listFriend;
+    private javax.swing.JList<String> listGroup;
     private javax.swing.JPanel pnBody;
     private javax.swing.JTextField txtMessage;
     // End of variables declaration//GEN-END:variables
