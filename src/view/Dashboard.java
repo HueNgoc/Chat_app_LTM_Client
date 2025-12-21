@@ -10,13 +10,19 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Image;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
+import java.net.Socket;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
+import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 import network.ClientSocket;
 
 /**
@@ -140,6 +146,45 @@ public class Dashboard extends javax.swing.JFrame {
         }
     }
 
+    private void loadNotJoinedGroups() {
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_NOT_JOINED_GROUPS;" + myEmail);
+
+        if (!res.startsWith("GROUP_LIST")) {
+            JOptionPane.showMessageDialog(this, "Không lấy được danh sách group");
+            return;
+        }
+
+        String[] arr = res.split(";");
+        DefaultListModel<String> model = new DefaultListModel<>();
+
+        for (int i = 1; i < arr.length; i++) {
+            model.addElement(arr[i]); // id:name
+        }
+
+        listGroup.setModel(model);
+        lblName.setText("Danh sách group");
+        currentGroupId = -1;
+    }
+
+    private void loadFriendRequests() {
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_FRIEND_REQUESTS;" + myEmail);
+
+        if (!res.startsWith("FRIEND_REQUESTS")) {
+            return;
+        }
+
+        DefaultListModel<String> model = new DefaultListModel<>();
+        String[] arr = res.split(";");
+
+        for (int i = 1; i < arr.length; i++) {
+            model.addElement(arr[i]); // id:name
+        }
+
+        listRequest.setModel(model);
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -154,6 +199,9 @@ public class Dashboard extends javax.swing.JFrame {
         btnView = new javax.swing.JMenuItem();
         jPopupMenuGroups = new javax.swing.JPopupMenu();
         btnLeaveGroup = new javax.swing.JMenuItem();
+        jPopupMenuRequest = new javax.swing.JPopupMenu();
+        btnAccept = new javax.swing.JMenuItem();
+        btnReject = new javax.swing.JMenuItem();
         jSplitPane1 = new javax.swing.JSplitPane();
         jPanel2 = new javax.swing.JPanel();
         lblAvt = new javax.swing.JLabel();
@@ -165,6 +213,9 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel4 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
         listGroup = new javax.swing.JList<>();
+        jPanel6 = new javax.swing.JPanel();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        listRequest = new javax.swing.JList<>();
         btnListFriend = new javax.swing.JButton();
         btnListGroup = new javax.swing.JButton();
         jPanel3 = new javax.swing.JPanel();
@@ -174,7 +225,7 @@ public class Dashboard extends javax.swing.JFrame {
         jScrollPane3 = new javax.swing.JScrollPane();
         pnBody = new javax.swing.JPanel();
         jPanel7 = new javax.swing.JPanel();
-        jButton3 = new javax.swing.JButton();
+        btnSendFile = new javax.swing.JButton();
         txtMessage = new javax.swing.JTextField();
         btnEmoij = new javax.swing.JButton();
         btnSend = new javax.swing.JButton();
@@ -208,6 +259,22 @@ public class Dashboard extends javax.swing.JFrame {
             }
         });
         jPopupMenuGroups.add(btnLeaveGroup);
+
+        btnAccept.setText("Accept");
+        btnAccept.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnAcceptActionPerformed(evt);
+            }
+        });
+        jPopupMenuRequest.add(btnAccept);
+
+        btnReject.setText("Reject");
+        btnReject.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRejectActionPerformed(evt);
+            }
+        });
+        jPopupMenuRequest.add(btnReject);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -285,9 +352,49 @@ public class Dashboard extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Groups", jPanel4);
 
+        listRequest.setModel(new javax.swing.AbstractListModel<String>() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public String getElementAt(int i) { return strings[i]; }
+        });
+        listRequest.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                listRequestMouseReleased(evt);
+            }
+        });
+        jScrollPane4.setViewportView(listRequest);
+
+        javax.swing.GroupLayout jPanel6Layout = new javax.swing.GroupLayout(jPanel6);
+        jPanel6.setLayout(jPanel6Layout);
+        jPanel6Layout.setHorizontalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+        );
+        jPanel6Layout.setVerticalGroup(
+            jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 444, Short.MAX_VALUE)
+        );
+
+        jTabbedPane1.addTab("Friend Request", jPanel6);
+
         btnListFriend.setText("List Friend");
+        btnListFriend.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnListFriendActionPerformed(evt);
+            }
+        });
 
         btnListGroup.setText("List Group");
+        btnListGroup.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                btnListGroupMouseClicked(evt);
+            }
+        });
+        btnListGroup.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnListGroupActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -356,11 +463,15 @@ public class Dashboard extends javax.swing.JFrame {
                 .addContainerGap(16, Short.MAX_VALUE))
         );
 
-        pnBody.setPreferredSize(null);
         pnBody.setLayout(new javax.swing.BoxLayout(pnBody, javax.swing.BoxLayout.Y_AXIS));
         jScrollPane3.setViewportView(pnBody);
 
-        jButton3.setText("Send File");
+        btnSendFile.setText("Send File");
+        btnSendFile.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSendFileActionPerformed(evt);
+            }
+        });
 
         txtMessage.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -391,7 +502,7 @@ public class Dashboard extends javax.swing.JFrame {
                 .addGap(23, 23, 23)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel7Layout.createSequentialGroup()
-                        .addComponent(jButton3)
+                        .addComponent(btnSendFile)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                         .addComponent(btnEmoij))
                     .addComponent(txtMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -408,7 +519,7 @@ public class Dashboard extends javax.swing.JFrame {
                     .addComponent(btnSend))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jButton3)
+                    .addComponent(btnSendFile)
                     .addComponent(btnEmoij))
                 .addContainerGap(50, Short.MAX_VALUE))
         );
@@ -614,6 +725,12 @@ public class Dashboard extends javax.swing.JFrame {
 
     private void jTabbedPane1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTabbedPane1MouseClicked
         // TODO add your handling code here:
+        int index = jTabbedPane1.getSelectedIndex();
+        String title = jTabbedPane1.getTitleAt(index);
+
+        if (title.equals("Friend Request")) {
+            loadFriendRequests();
+        }
 
     }//GEN-LAST:event_jTabbedPane1MouseClicked
 
@@ -622,64 +739,174 @@ public class Dashboard extends javax.swing.JFrame {
         String selected = listGroup.getSelectedValue();
         if (selected != null) {
             String[] parts = selected.split(":");
-            currentGroupId = Integer.parseInt(parts[0]);
-            lblName.setText(parts[1]); // Hiển thị tên group
+            if (parts.length < 2) {
+                System.err.println("Lỗi: dữ liệu group không hợp lệ: " + selected);
+                return;
+            }
+            try {
+                currentGroupId = Integer.parseInt(parts[0]);
+                lblName.setText(parts[1]); // Hiển thị tên group
+            } catch (NumberFormatException e) {
+                System.err.println("Lỗi parse groupId: " + parts[0]);
+                return;
+            }
 
-            // 1. Clear pnBody để load lại message
+            // Clear pnBody để load lại message
             pnBody.removeAll();
             pnBody.revalidate();
             pnBody.repaint();
 
-            // 2. Lấy lịch sử tin nhắn từ server
+            // Lấy lịch sử tin nhắn từ server
             String res = ClientSocket.getInstance()
                     .sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
 
             if (res.startsWith("GROUP_MESSAGES")) {
                 String[] msgs = res.split(";");
-                // Bỏ "GROUP_MESSAGES" ở index 0
                 for (int i = 1; i < msgs.length; i++) {
-                    String[] msgParts = msgs[i].split(":", 3); // email, fullname, content
-                    String senderEmail = msgParts[0];
-                    String senderName = msgParts[1];
-                    String content = msgParts[2];
+//                String[] msgParts = msgs[i].split(":", 3); // email, fullname, content
+//                if (msgParts.length < 3) continue; // tránh lỗi nếu msg không đủ
+//                String senderEmail = msgParts[0];
+//                String senderName = msgParts[1];
+//                String content = msgParts[2];
+//
+//                String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
+//                addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+                    String[] msgParts = msgs[i].split("\\|", 4); // id | email | fullname | content
+                    if (msgParts.length < 4) {
+                        continue;
+                    }
+
+                    String msgId = msgParts[0];       // có thể bỏ qua nếu không cần
+                    String senderEmail = msgParts[1];
+                    String senderName = msgParts[2];
+                    String content = msgParts[3];
 
                     String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
                     addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
-                }
 
+                }
             }
         }
     }//GEN-LAST:event_listGroupMouseClicked
 
+    private void btnListGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListGroupActionPerformed
+        // TODO add your handling code here:
+        JoinGroupDialog dialog = new JoinGroupDialog(this, myEmail);
+        dialog.setVisible(true);
+
+        // Sau khi dialog đóng → reload group chính
+        loadGroups();
+
+    }//GEN-LAST:event_btnListGroupActionPerformed
+
+    private void btnListGroupMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_btnListGroupMouseClicked
+        // TODO add your handling code here:
+
+    }//GEN-LAST:event_btnListGroupMouseClicked
+
+    private void btnListFriendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListFriendActionPerformed
+        // TODO add your handling code here:
+        FriendDialog dlg
+                = new FriendDialog(this, myEmail);
+        dlg.setLocationRelativeTo(this);
+        dlg.setVisible(true);
+    }//GEN-LAST:event_btnListFriendActionPerformed
+
+    private void listRequestMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listRequestMouseReleased
+        // TODO add your handling code here:
+        if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+
+            int idx = listRequest.locationToIndex(evt.getPoint());
+
+            if (idx >= 0) {
+                listRequest.setSelectedIndex(idx);
+
+                // hiện popup menu tại vị trí chuột
+                jPopupMenuRequest.show(
+                        listRequest,
+                        evt.getX(),
+                        evt.getY()
+                );
+            }
+        }
+    }//GEN-LAST:event_listRequestMouseReleased
+
+    private void btnAcceptActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAcceptActionPerformed
+        // TODO add your handling code here:
+        String selected = listRequest.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
+
+        int friendId = Integer.parseInt(selected.split(":")[0]);
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("ACCEPT_FRIEND;" + myEmail + ";" + friendId);
+
+        if (res.equals("ACCEPT_SUCCESS")) {
+            JOptionPane.showMessageDialog(this, "Đã chấp nhận");
+            loadFriendRequests();
+            // loadFriends(); (nếu có)
+        }
+    }//GEN-LAST:event_btnAcceptActionPerformed
+
+    private void btnRejectActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRejectActionPerformed
+        // TODO add your handling code here:
+        String selected = listRequest.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
+
+        int friendId = Integer.parseInt(selected.split(":")[0]);
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("REJECT_FRIEND;" + myEmail + ";" + friendId);
+
+        if (res.equals("REJECT_SUCCESS")) {
+            JOptionPane.showMessageDialog(this, "Đã từ chối");
+            loadFriendRequests();
+        }
+    }//GEN-LAST:event_btnRejectActionPerformed
+
+    private void btnSendFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendFileActionPerformed
+
+    }//GEN-LAST:event_btnSendFileActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JMenuItem btnAccept;
     private javax.swing.JMenuItem btnBlock;
     private javax.swing.JButton btnCreateGroup;
     private javax.swing.JButton btnEmoij;
     private javax.swing.JMenuItem btnLeaveGroup;
     private javax.swing.JButton btnListFriend;
     private javax.swing.JButton btnListGroup;
+    private javax.swing.JMenuItem btnReject;
     private javax.swing.JButton btnSend;
+    private javax.swing.JButton btnSendFile;
     private javax.swing.JMenuItem btnView;
     private javax.swing.JButton jButton2;
-    private javax.swing.JButton jButton3;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
     private javax.swing.JPanel jPanel5;
+    private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
     private javax.swing.JPopupMenu jPopupMenuFriends;
     private javax.swing.JPopupMenu jPopupMenuGroups;
+    private javax.swing.JPopupMenu jPopupMenuRequest;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JSplitPane jSplitPane1;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JLabel lblAvt;
     private javax.swing.JLabel lblName;
     private javax.swing.JList<String> listFriend;
     private javax.swing.JList<String> listGroup;
+    private javax.swing.JList<String> listRequest;
     private javax.swing.JPanel pnBody;
     private javax.swing.JTextField txtMessage;
     // End of variables declaration//GEN-END:variables

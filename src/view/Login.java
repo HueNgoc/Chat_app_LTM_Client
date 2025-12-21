@@ -4,6 +4,8 @@
  */
 package view;
 
+import network.ClientSocket;
+
 /**
  *
  * @author Admin
@@ -181,10 +183,11 @@ public class Login extends javax.swing.JFrame {
         String[] data = response.split(";");
        String useName = data[1];
        String fullName = data[2];
-
+        
         new Dashboard(email, fullName).setVisible(true);
         this.dispose();
-        
+        System.out.println("Server response: " + response);
+
         // Mở Form Chat chính hoặc Menu, truyền thông tin User vào
         // new MainMenu(email, fullName, gender, dob).setVisible(true);
         
