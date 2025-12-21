@@ -6,11 +6,16 @@ package view;
 
 import javax.swing.BoxLayout;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Image;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.BorderFactory;
+import javax.swing.Box;
 import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 import network.ClientSocket;
 
@@ -39,53 +44,84 @@ public class Dashboard extends javax.swing.JFrame {
 
         loadGroups();
         pnBody.setLayout(new BoxLayout(pnBody, BoxLayout.Y_AXIS));
+        pnBody.setOpaque(true);
+        pnBody.setAlignmentX(JPanel.LEFT_ALIGNMENT);
+        pnBody.setAutoscrolls(true);
+
     }
 
     public void addMessage(String text, boolean isMe) {
-        // 1. Tạo một JPanel làm một "Hàng" (Row) chứa tin nhắn
         JPanel pnRow = new JPanel();
-        pnRow.setBackground(Color.WHITE); // Màu nền trùng với pnBody
+        pnRow.setBackground(Color.WHITE);
+        pnRow.setLayout(new FlowLayout(isMe ? FlowLayout.RIGHT : FlowLayout.LEFT, 5, 5));
 
-        // Nếu là mình (isMe = true) -> Căn phải (RIGHT). Người khác -> Căn trái (LEFT)
-        if (isMe) {
-            pnRow.setLayout(new FlowLayout(FlowLayout.RIGHT));
-        } else {
-            pnRow.setLayout(new FlowLayout(FlowLayout.LEFT));
-        }
+        // Cho row fill full width
+        //pnRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, pnRow.getPreferredSize().height));
+        pnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 2. Tạo cục Bubble (Dùng class BubblePanel vừa tạo ở Bước 2)
-        // Màu xanh (CYAN) nếu là mình, màu Xám (LIGHT_GRAY) nếu là bạn
         BubblePanel pnBubble = new BubblePanel(isMe ? new Color(0, 197, 255) : Color.LIGHT_GRAY);
 
-        // 3. Tạo Label chứa chữ
-        JLabel lblContent = new JLabel(text);
-        lblContent.setForeground(isMe ? Color.WHITE : Color.BLACK); // Chữ trắng hoặc đen
-        lblContent.setFont(new java.awt.Font("Arial", 0, 14));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < text.length();) {
+            int codePoint = text.codePointAt(i);
+            i += Character.charCount(codePoint);
 
-        // Thêm khoảng cách (Padding) cho chữ không dính sát viền
-        lblContent.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            if (isEmoji(codePoint)) {
+                if (sb.length() > 0) {
+                    pnBubble.add(new JLabel(sb.toString()));
+                    sb.setLength(0);
+                }
 
-        // 4. Gắn Label vào Bubble, gắn Bubble vào Hàng
-        pnBubble.add(lblContent);
+                try {
+                    String hex = Integer.toHexString(codePoint);
+                    String url = "https://twemoji.maxcdn.com/v/latest/72x72/" + hex + ".png";
+
+                    ImageIcon icon = new ImageIcon(new java.net.URL(url));
+                    Image img = icon.getImage().getScaledInstance(24, 24, java.awt.Image.SCALE_SMOOTH);
+                    ImageIcon smallIcon = new ImageIcon(img);
+                    //pnBubble.add(new JLabel(icon));
+                    JLabel lbl = new JLabel(smallIcon);
+                    lbl.setPreferredSize(new Dimension(24, 24));
+                    lbl.setMaximumSize(new Dimension(24, 24));
+                    lbl.setMinimumSize(new Dimension(24, 24));
+                    pnBubble.add(lbl);
+                } catch (Exception e) {
+                    pnBubble.add(new JLabel(new String(Character.toChars(codePoint))));
+                }
+
+            } else {
+                sb.append(Character.toChars(codePoint));
+            }
+        }
+
+        if (sb.length() > 0) {
+            pnBubble.add(new JLabel(sb.toString()));
+        }
+
         pnRow.add(pnBubble);
+        pnRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, pnRow.getPreferredSize().height));
+        pnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 5. Gắn Hàng vào Body chính
         pnBody.add(pnRow);
 
-        // 6. Cập nhật lại giao diện (Bắt buộc)
         pnBody.revalidate();
         pnBody.repaint();
 
-        // 7. Tự động cuộn xuống dưới cùng
         scrollToBottom();
     }
 
-// Hàm phụ để cuộn xuống dưới
+    private boolean isEmoji(int codePoint) {
+        return (codePoint >= 0x1F300 && codePoint <= 0x1F6FF)
+                || (codePoint >= 0x1F600 && codePoint <= 0x1F64F)
+                || (codePoint >= 0x1F680 && codePoint <= 0x1F6FF)
+                || (codePoint >= 0x1F900 && codePoint <= 0x1F9FF);
+    }
+
     private void scrollToBottom() {
         javax.swing.SwingUtilities.invokeLater(() -> {
-            // jScrollPane1 là tên cái ScrollPane của bạn
-            javax.swing.JScrollBar vertical = jScrollPane1.getVerticalScrollBar();
-            vertical.setValue(vertical.getMaximum());
+            jScrollPane3.getVerticalScrollBar().setValue(
+                    jScrollPane3.getVerticalScrollBar().getMaximum()
+            );
         });
     }
 
@@ -129,6 +165,8 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel4 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
         listGroup = new javax.swing.JList<>();
+        btnListFriend = new javax.swing.JButton();
+        btnListGroup = new javax.swing.JButton();
         jPanel3 = new javax.swing.JPanel();
         jPanel5 = new javax.swing.JPanel();
         lblName = new javax.swing.JLabel();
@@ -138,7 +176,7 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel7 = new javax.swing.JPanel();
         jButton3 = new javax.swing.JButton();
         txtMessage = new javax.swing.JTextField();
-        jButton4 = new javax.swing.JButton();
+        btnEmoij = new javax.swing.JButton();
         btnSend = new javax.swing.JButton();
 
         btnBlock.setText("Block");
@@ -214,8 +252,8 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 475, Short.MAX_VALUE)
-                .addContainerGap())
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 432, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 12, Short.MAX_VALUE))
         );
 
         jTabbedPane1.addTab("Friends", jPanel1);
@@ -242,10 +280,14 @@ public class Dashboard extends javax.swing.JFrame {
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 481, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 444, Short.MAX_VALUE)
         );
 
         jTabbedPane1.addTab("Groups", jPanel4);
+
+        btnListFriend.setText("List Friend");
+
+        btnListGroup.setText("List Group");
 
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
@@ -258,6 +300,11 @@ public class Dashboard extends javax.swing.JFrame {
                 .addComponent(btnCreateGroup)
                 .addContainerGap())
             .addComponent(jTabbedPane1)
+            .addGroup(jPanel2Layout.createSequentialGroup()
+                .addComponent(btnListFriend)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(btnListGroup)
+                .addGap(16, 16, 16))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -267,7 +314,12 @@ public class Dashboard extends javax.swing.JFrame {
                     .addComponent(lblAvt)
                     .addComponent(btnCreateGroup))
                 .addGap(18, 18, 18)
-                .addComponent(jTabbedPane1))
+                .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 479, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnListFriend)
+                    .addComponent(btnListGroup))
+                .addContainerGap(26, Short.MAX_VALUE))
         );
 
         jTabbedPane1.getAccessibleContext().setAccessibleName("");
@@ -304,7 +356,7 @@ public class Dashboard extends javax.swing.JFrame {
                 .addContainerGap(16, Short.MAX_VALUE))
         );
 
-        pnBody.setPreferredSize(new java.awt.Dimension(350, 368));
+        pnBody.setPreferredSize(null);
         pnBody.setLayout(new javax.swing.BoxLayout(pnBody, javax.swing.BoxLayout.Y_AXIS));
         jScrollPane3.setViewportView(pnBody);
 
@@ -316,10 +368,10 @@ public class Dashboard extends javax.swing.JFrame {
             }
         });
 
-        jButton4.setText("Emoji");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
+        btnEmoij.setText("Emoji");
+        btnEmoij.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
+                btnEmoijActionPerformed(evt);
             }
         });
 
@@ -341,7 +393,7 @@ public class Dashboard extends javax.swing.JFrame {
                     .addGroup(jPanel7Layout.createSequentialGroup()
                         .addComponent(jButton3)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jButton4))
+                        .addComponent(btnEmoij))
                     .addComponent(txtMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(btnSend)
@@ -357,8 +409,8 @@ public class Dashboard extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jButton3)
-                    .addComponent(jButton4))
-                .addContainerGap(26, Short.MAX_VALUE))
+                    .addComponent(btnEmoij))
+                .addContainerGap(50, Short.MAX_VALUE))
         );
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
@@ -477,9 +529,28 @@ public class Dashboard extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnSendActionPerformed
 
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
+    private void btnEmoijActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEmoijActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jButton4ActionPerformed
+        // Danh sách emoji Unicode (có thể thêm nhiều)
+        String[] emojis = {"😄", "😂", "😍", "👍", "🎉", "❤️", "😢", "😎"};
+
+        // Hiển thị lựa chọn emoji
+        String selected = (String) JOptionPane.showInputDialog(
+                this,
+                "Chọn Emoji:",
+                "Emoji Picker",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                emojis,
+                emojis[0]
+        );
+
+        if (selected != null) {
+            // Chèn emoji vào ô chat hiện tại
+            txtMessage.setText(txtMessage.getText() + selected);
+            txtMessage.requestFocus();
+        }
+    }//GEN-LAST:event_btnEmoijActionPerformed
 
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
         // TODO add your handling code here:
@@ -584,12 +655,14 @@ public class Dashboard extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem btnBlock;
     private javax.swing.JButton btnCreateGroup;
+    private javax.swing.JButton btnEmoij;
     private javax.swing.JMenuItem btnLeaveGroup;
+    private javax.swing.JButton btnListFriend;
+    private javax.swing.JButton btnListGroup;
     private javax.swing.JButton btnSend;
     private javax.swing.JMenuItem btnView;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
-    private javax.swing.JButton jButton4;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
