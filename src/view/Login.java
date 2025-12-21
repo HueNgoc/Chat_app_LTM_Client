@@ -179,11 +179,10 @@ public class Login extends javax.swing.JFrame {
     // Server trả về: LOGIN_SUCCESS;fullname;gender;dob
     if (response.startsWith("LOGIN_SUCCESS")) {
         String[] data = response.split(";");
-        String fullName = data[1];
-        String gender = data[2];
-        String dob = data[3];
+       String useName = data[1];
+       String fullName = data[2];
 
-        javax.swing.JOptionPane.showMessageDialog(this, "Xin chào " + fullName);
+        new Dashboard(email, fullName).setVisible(true);
         this.dispose();
         
         // Mở Form Chat chính hoặc Menu, truyền thông tin User vào

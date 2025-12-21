@@ -12,21 +12,32 @@ import javax.swing.JLabel;
 import javax.swing.BorderFactory;
 
 
+
 /**
  *
  * @author Admin
  */
 public class Dashboard extends javax.swing.JFrame {
+     private String myEmail;
+    private String myName;
+    
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(Dashboard.class.getName());
 
     /**
      * Creates new form Dashboard
      */
-    public Dashboard() {
+    public Dashboard(String email, String name) {
+        this.myEmail = email;
+        this.myName = name;
         initComponents();
+
+        this.setTitle("Chat App - " + name);
+        lblAvt.setText(name);
+
         pnBody.setLayout(new BoxLayout(pnBody, BoxLayout.Y_AXIS));
     }
+    
     
     public void addMessage(String text, boolean isMe) {
     // 1. Tạo một JPanel làm một "Hàng" (Row) chứa tin nhắn
@@ -90,7 +101,7 @@ private void scrollToBottom() {
         btnView = new javax.swing.JMenuItem();
         jSplitPane1 = new javax.swing.JSplitPane();
         jPanel2 = new javax.swing.JPanel();
-        jLabel1 = new javax.swing.JLabel();
+        lblAvt = new javax.swing.JLabel();
         jButton1 = new javax.swing.JButton();
         jTabbedPane1 = new javax.swing.JTabbedPane();
         jPanel1 = new javax.swing.JPanel();
@@ -139,7 +150,7 @@ private void scrollToBottom() {
 
         jPanel2.setPreferredSize(new java.awt.Dimension(300, 475));
 
-        jLabel1.setText("Avt");
+        lblAvt.setText("Avt");
 
         jButton1.setText("Create Group");
 
@@ -198,7 +209,7 @@ private void scrollToBottom() {
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(lblAvt, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addComponent(jButton1)
                 .addContainerGap())
@@ -209,7 +220,7 @@ private void scrollToBottom() {
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addGap(15, 15, 15)
                 .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jLabel1)
+                    .addComponent(lblAvt)
                     .addComponent(jButton1))
                 .addGap(18, 18, 18)
                 .addComponent(jTabbedPane1))
@@ -423,30 +434,7 @@ private void scrollToBottom() {
         // TODO add your handling code here:
     }//GEN-LAST:event_jButton2ActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
-            logger.log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new Dashboard().setVisible(true));
-    }
+  
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem btnBlock;
@@ -456,7 +444,6 @@ private void scrollToBottom() {
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton4;
     private javax.swing.JButton jButton5;
-    private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JList<String> jList1;
     private javax.swing.JList<String> jList2;
@@ -472,6 +459,7 @@ private void scrollToBottom() {
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JSplitPane jSplitPane1;
     private javax.swing.JTabbedPane jTabbedPane1;
+    private javax.swing.JLabel lblAvt;
     private javax.swing.JPanel pnBody;
     private javax.swing.JTextField txtMessage;
     // End of variables declaration//GEN-END:variables
