@@ -10,8 +10,11 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Image;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
@@ -26,6 +29,7 @@ import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import network.ClientSocket;
+import view.BubblePanel;
 
 /**
  *
@@ -238,6 +242,89 @@ public class Dashboard extends javax.swing.JFrame {
         listBlock.setModel(model);
     }
 
+    // file
+    private void addFileMessage(String sender, String fileName,
+            String filePath, boolean isMe) {
+
+        JPanel pnRow = new JPanel(
+                new FlowLayout(isMe ? FlowLayout.RIGHT : FlowLayout.LEFT, 5, 5)
+        );
+        pnRow.setBackground(Color.WHITE);
+        pnRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pnRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+
+        BubblePanel bubble = new BubblePanel(
+                isMe ? new Color(0, 197, 255) : Color.LIGHT_GRAY
+        );
+
+        JLabel lblFile = new JLabel("📎 " + sender + ": " + fileName);
+        lblFile.setForeground(Color.BLUE);
+        lblFile.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+
+        lblFile.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                downloadFile(filePath, fileName);
+            }
+        });
+
+        bubble.add(lblFile);
+        pnRow.add(bubble);
+        pnBody.add(pnRow);
+
+        pnBody.revalidate();
+        pnBody.repaint();
+        scrollToBottom();
+    }
+
+    private void downloadFile(String serverPath, String fileName) {
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setSelectedFile(new File(fileName));
+
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File saveFile = chooser.getSelectedFile();
+
+        new Thread(() -> {
+            try {
+                ClientSocket cs = ClientSocket.getInstance();
+
+                cs.sendRequest("DOWNLOAD_FILE;" + serverPath);
+
+                DataInputStream dis = new DataInputStream(
+                        cs.getSocket().getInputStream()
+                );
+
+                long size = dis.readLong();
+
+                FileOutputStream fos = new FileOutputStream(saveFile);
+                byte[] buffer = new byte[4096];
+                int read;
+                long remaining = size;
+
+                while (remaining > 0
+                        && (read = dis.read(buffer, 0,
+                                (int) Math.min(buffer.length, remaining))) != -1) {
+
+                    fos.write(buffer, 0, read);
+                    remaining -= read;
+                }
+
+                fos.close();
+
+                SwingUtilities.invokeLater(()
+                        -> JOptionPane.showMessageDialog(this, "Tải file thành công")
+                );
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        }).start();
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -372,11 +459,6 @@ public class Dashboard extends javax.swing.JFrame {
             }
         });
 
-        listFriend.setModel(new javax.swing.AbstractListModel<String>() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public String getElementAt(int i) { return strings[i]; }
-        });
         listFriend.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 listFriendMouseClicked(evt);
@@ -454,11 +536,6 @@ public class Dashboard extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Friend Request", jPanel6);
 
-        listBlock.setModel(new javax.swing.AbstractListModel<String>() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public String getElementAt(int i) { return strings[i]; }
-        });
         jScrollPane5.setViewportView(listBlock);
 
         javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
@@ -617,8 +694,9 @@ public class Dashboard extends javax.swing.JFrame {
                         .addContainerGap()
                         .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jButton2)))
-                .addContainerGap(40, Short.MAX_VALUE))
+                        .addComponent(jButton2)
+                        .addGap(21, 21, 21)))
+                .addContainerGap(43, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -864,6 +942,7 @@ public class Dashboard extends javax.swing.JFrame {
             }
             try {
                 currentGroupId = Integer.parseInt(parts[0]);
+                currentFriendId = -1;
                 lblName.setText(parts[1]); // Hiển thị tên group
             } catch (NumberFormatException e) {
                 System.err.println("Lỗi parse groupId: " + parts[0]);
@@ -890,18 +969,45 @@ public class Dashboard extends javax.swing.JFrame {
 //
 //                String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
 //                addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
-                    String[] msgParts = msgs[i].split("\\|", 4); // id | email | fullname | content
-                    if (msgParts.length < 4) {
-                        continue;
-                    }
 
-                    String msgId = msgParts[0];       // có thể bỏ qua nếu không cần
+// coment từ chỗ này để chode file
+//                    String[] msgParts = msgs[i].split("\\|", 4); // id | email | fullname | content
+//                    if (msgParts.length < 4) {
+//                        continue;
+//                    }
+//
+//                    String msgId = msgParts[0];       // có thể bỏ qua nếu không cần
+//                    String senderEmail = msgParts[1];
+//                    String senderName = msgParts[2];
+//                    String content = msgParts[3];
+//
+//                    String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
+//                    addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+                    String[] msgParts = msgs[i].split("\\|");
+                    if (msgParts.length < 4) {
+                        continue; // tối thiểu phải có id|email|name|type
+                    }
                     String senderEmail = msgParts[1];
                     String senderName = msgParts[2];
-                    String content = msgParts[3];
+                    String msgType = msgParts[3];
 
-                    String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
-                    addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+                    boolean isMe = senderEmail.equals(myEmail);
+                    String displayName = isMe ? "Me" : senderName;
+
+                    if ("File".equals(msgType)) {
+                        if (msgParts.length < 6) {
+                            continue; // cần fileName + filePath
+                        }
+                        String fileName = msgParts[4];
+                        String filePath = msgParts[5];
+                        addFileMessage(displayName, fileName, filePath, isMe);
+                    } else {
+                        if (msgParts.length < 5) {
+                            continue; // cần content
+                        }
+                        String content = msgParts[4];
+                        addMessage(displayName + ": " + content, isMe);
+                    }
 
                 }
             }
@@ -988,6 +1094,184 @@ public class Dashboard extends javax.swing.JFrame {
     }//GEN-LAST:event_btnRejectActionPerformed
 
     private void btnSendFileActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendFileActionPerformed
+//        if (currentGroupId == -1) {
+//            JOptionPane.showMessageDialog(this, "Chưa chọn friend hoặc group");
+//            return;
+//        }
+//
+//        JFileChooser chooser = new JFileChooser();
+//        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+//            return;
+//        }
+//
+//        File file = chooser.getSelectedFile();
+//
+//        new Thread(() -> {
+//            ClientSocket socket = ClientSocket.getInstance();
+//
+//            String res = socket.sendFileGroup(
+//                    myEmail,
+//                    currentGroupId,
+//                    file
+//            );
+//
+////            
+//// Trong hàm btnSendFileActionPerformed
+//            if ("SEND_FILE_SUCCESS".equals(res)) {
+//
+//                // reload message sau khi gửi file
+//                String msg = socket.sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
+//
+//                SwingUtilities.invokeLater(() -> {
+//                    pnBody.removeAll();
+//
+//                    if (msg.startsWith("GROUP_MESSAGES")) {
+//                        String[] msgs = msg.split(";");
+//
+//                        for (int i = 1; i < msgs.length; i++) {
+//                            // SỬA TỪ ĐÂY: Dùng logic split và check type giống hệt hàm click group
+//                            String[] parts = msgs[i].split("\\|"); // Bỏ giới hạn số 4 đi để cắt hết
+//
+//                            if (parts.length < 4) {
+//                                continue;
+//                            }
+//
+//                            String senderEmail = parts[1];
+//                            String senderName = parts[2];
+//                            String msgType = parts[3]; // Lấy loại tin nhắn (Text hay File)
+//
+//                            boolean isMe = senderEmail.equals(myEmail);
+//                            String displayName = isMe ? "Me" : senderName;
+//
+//                            // Kiểm tra loại tin nhắn để gọi hàm hiển thị đúng
+//                            if ("File".equals(msgType)) {
+//                                if (parts.length < 6) {
+//                                    continue;
+//                                }
+//                                String fileName = parts[4];
+//                                String filePath = parts[5];
+//                                // Gọi hàm hiện file
+//                                addFileMessage(displayName, fileName, filePath, isMe);
+//                            } else {
+//                                if (parts.length < 5) {
+//                                    continue;
+//                                }
+//                                String content = parts[4];
+//                                // Gọi hàm hiện text
+//                                addMessage(displayName + ": " + content, isMe);
+//                            }
+//                        }
+//                    }
+//
+//                    pnBody.revalidate();
+//                    pnBody.repaint();
+//                    // Cuộn xuống dưới cùng sau khi load xong
+//                    scrollToBottom();
+//                });
+//            } else {
+//                SwingUtilities.invokeLater(()
+//                        -> JOptionPane.showMessageDialog(this, "Gửi file thất bại")
+//                );
+//            }
+//        }).start();
+if (currentGroupId == -1 && currentFriendId == -1) {
+        JOptionPane.showMessageDialog(this, "Chưa chọn friend hoặc group");
+        return;
+    }
+
+    JFileChooser chooser = new JFileChooser();
+    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+        return;
+    }
+
+    File file = chooser.getSelectedFile();
+
+    new Thread(() -> {
+        ClientSocket socket = ClientSocket.getInstance();
+        String res = "";
+
+        try {
+            if (currentFriendId != -1) {
+                // Gửi file cho friend riêng
+                res = socket.sendFilePrivate(myEmail, currentFriendId, file);
+            } else if (currentGroupId != -1) {
+                // Gửi file cho group
+                res = socket.sendFileGroup(myEmail, currentGroupId, file);
+            }
+
+            if ("SEND_FILE_SUCCESS".equals(res)) {
+              
+                // Reload chat sau khi gửi file
+                SwingUtilities.invokeLater(() -> {
+                    pnBody.removeAll();
+                    String msg = "";
+
+                    if (currentFriendId != -1) {
+                        msg = socket.sendRequest("GET_PRIVATE_MESSAGES;" + myEmail + ";" + currentFriendId);
+                        if (msg.startsWith("PRIVATE_MESSAGES")) {
+                            String[] msgs = msg.split(";");
+                            for (int i = 1; i < msgs.length; i++) {
+                                String[] parts = msgs[i].split("\\|"); // id|email|name|type|content/fileName
+                                if (parts.length < 4) continue;
+                                String senderEmail = parts[1];
+                                String senderName = parts[2];
+                                String msgType = parts[3];
+                                boolean isMe = senderEmail.equals(myEmail);
+                                String displayName = isMe ? "Me" : senderName;
+
+                                if ("File".equals(msgType) && parts.length >= 6) {
+                                    String fileName = parts[4];
+                                    String filePath = parts[5];
+                                    addFileMessage(displayName, fileName, filePath, isMe);
+                                } else if (parts.length >= 5) {
+                                    String content = parts[4];
+                                    addMessage(displayName + ": " + content, isMe);
+                                }
+                            }   
+                        }
+                    } else if (currentGroupId != -1) {
+                        msg = socket.sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
+                        // Logic giống như trước
+                        if (msg.startsWith("GROUP_MESSAGES")) {
+                            String[] msgs = msg.split(";");
+                            for (int i = 1; i < msgs.length; i++) {
+                                String[] parts = msgs[i].split("\\|");
+                                if (parts.length < 4) continue;
+                                String senderEmail = parts[1];
+                                String senderName = parts[2];
+                                String msgType = parts[3];
+                                boolean isMe = senderEmail.equals(myEmail);
+                                String displayName = isMe ? "Me" : senderName;
+
+                                if ("File".equals(msgType) && parts.length >= 6) {
+                                    String fileName = parts[4];
+                                    String filePath = parts[5];
+                                    addFileMessage(displayName, fileName, filePath, isMe);
+                                } else if (parts.length >= 5) {
+                                    String content = parts[4];
+                                    addMessage(displayName + ": " + content, isMe);
+                                }
+                            }
+                        }
+                    }
+
+                    pnBody.revalidate();
+                    pnBody.repaint();
+                    scrollToBottom();
+                });
+            } else {
+                SwingUtilities.invokeLater(() ->
+                        JOptionPane.showMessageDialog(this, "Gửi file thất bại")
+                );
+            }
+
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            SwingUtilities.invokeLater(() ->
+                    JOptionPane.showMessageDialog(this, "Gửi file thất bại")
+            );
+        }
+    }).start();
 
     }//GEN-LAST:event_btnSendFileActionPerformed
 
@@ -1006,6 +1290,7 @@ public class Dashboard extends javax.swing.JFrame {
 
         try {
             currentFriendId = Integer.parseInt(parts[0].trim());
+            currentGroupId = -1;
             currentFriendName = parts[1].trim();
         } catch (NumberFormatException e) {
             return;
@@ -1025,17 +1310,31 @@ public class Dashboard extends javax.swing.JFrame {
         if (res.startsWith("PRIVATE_MESSAGES")) {
             String[] msgs = res.split(";");
             for (int i = 1; i < msgs.length; i++) {
-                String[] msgParts = msgs[i].split("\\|", 4);
+                String[] msgParts = msgs[i].split("\\|");
                 if (msgParts.length < 4) {
                     continue;
                 }
 
                 String senderEmail = msgParts[1];
                 String senderName = msgParts[2];
-                String content = msgParts[3];
+                String msgType = msgParts[3];
 
-                String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
-                addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+                boolean isMe = senderEmail.equals(myEmail);
+                String displayName = isMe ? "Me" : senderName;
+
+                if ("File".equals(msgType)) {
+                    if (msgParts.length >= 6) {
+                        String fileName = msgParts[4];
+                        String filePath = msgParts[5];
+                        addFileMessage(displayName, fileName, filePath, isMe);
+                    }
+                } else {
+                    if (msgParts.length >= 5) {
+                        String content = msgParts[4];
+                        addMessage(displayName + ": " + content, isMe);
+                    }
+                }
+
             }
         }
     }//GEN-LAST:event_listFriendMouseClicked
@@ -1079,31 +1378,31 @@ public class Dashboard extends javax.swing.JFrame {
     private void btnViewGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnViewGroupActionPerformed
         // TODO add your handling code here:
         String selected = listGroup.getSelectedValue();
-    if (selected == null) {
-        JOptionPane.showMessageDialog(this, "Chưa chọn group");
-        return;
-    }
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this, "Chưa chọn group");
+            return;
+        }
 
-    // selected = "3:Java Group"
-    String[] parts = selected.split(":");
-    if (parts.length < 2) {
-        JOptionPane.showMessageDialog(this, "Dữ liệu group không hợp lệ");
-        return;
-    }
+        // selected = "3:Java Group"
+        String[] parts = selected.split(":");
+        if (parts.length < 2) {
+            JOptionPane.showMessageDialog(this, "Dữ liệu group không hợp lệ");
+            return;
+        }
 
-    int groupId;
-    try {
-        groupId = Integer.parseInt(parts[0].trim());
-    } catch (NumberFormatException e) {
-        JOptionPane.showMessageDialog(this, "Không lấy được groupId");
-        return;
-    }
+        int groupId;
+        try {
+            groupId = Integer.parseInt(parts[0].trim());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Không lấy được groupId");
+            return;
+        }
 
-    // 👉 MỞ DIALOG VIEW GROUP
-    ViewGroupInfo dialog =
-            new ViewGroupInfo(this, true, groupId);
-    dialog.setLocationRelativeTo(this);
-    dialog.setVisible(true);
+        // 👉 MỞ DIALOG VIEW GROUP
+        ViewGroupInfo dialog
+                = new ViewGroupInfo(this, true, groupId);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }//GEN-LAST:event_btnViewGroupActionPerformed
 
 
