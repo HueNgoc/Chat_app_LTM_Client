@@ -7,7 +7,7 @@ public class ClientSocket {
 
     private static ClientSocket instance;
 
-    private static final String SERVER_IP = "127.0.0.1";
+    private static final String SERVER_IP = "192.168.56.1";
     private static final int SERVER_PORT = 12345;
 
     private Socket socket;

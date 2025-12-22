@@ -14,6 +14,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.HashMap;
+import java.util.Map;
 import javax.swing.JPanel;
 import javax.swing.JLabel;
 import javax.swing.BorderFactory;
@@ -34,6 +36,9 @@ public class Dashboard extends javax.swing.JFrame {
     private String myEmail;
     private String myName;
     private int currentGroupId = -1;
+    private int currentFriendId = -1; // id của friend đang chat
+    private String currentFriendName = ""; // tên friend đang chat
+
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(Dashboard.class.getName());
 
     /**
@@ -49,6 +54,7 @@ public class Dashboard extends javax.swing.JFrame {
         listGroup.setModel(new DefaultListModel<>());
 
         loadGroups();
+        loadFriends();
         pnBody.setLayout(new BoxLayout(pnBody, BoxLayout.Y_AXIS));
         pnBody.setOpaque(true);
         pnBody.setAlignmentX(JPanel.LEFT_ALIGNMENT);
@@ -185,6 +191,53 @@ public class Dashboard extends javax.swing.JFrame {
         listRequest.setModel(model);
     }
 
+    private void loadFriends() {
+
+        DefaultListModel<String> model = new DefaultListModel<>();
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_FRIENDS;" + myEmail);
+
+        if (res == null || !res.startsWith("FRIEND_LIST")) {
+            return;
+        }
+
+        String[] parts = res.split(";");
+
+        for (int i = 1; i < parts.length; i++) {
+            // format server: id:name:email:avatar
+            String[] f = parts[i].split(":");
+
+            if (f.length >= 2) {
+                String id = f[0];
+                String name = f[1];
+
+                // 👇 HIỂN THỊ CÓ ID
+                model.addElement(id + " - " + name);
+            }
+        }
+
+        listFriend.setModel(model);
+    }
+
+    private void loadBlockedFriends() {
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_BLOCKED_FRIENDS;" + myEmail);
+
+        if (!res.startsWith("BLOCK_LIST")) {
+            return;
+        }
+
+        DefaultListModel<String> model = new DefaultListModel<>();
+        String[] arr = res.split(";");
+
+        for (int i = 1; i < arr.length; i++) {
+            model.addElement(arr[i]); // id:name hoặc name
+        }
+
+        listBlock.setModel(model);
+    }
+
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -197,8 +250,10 @@ public class Dashboard extends javax.swing.JFrame {
         jPopupMenuFriends = new javax.swing.JPopupMenu();
         btnBlock = new javax.swing.JMenuItem();
         btnView = new javax.swing.JMenuItem();
+        btnHuyKB = new javax.swing.JMenuItem();
         jPopupMenuGroups = new javax.swing.JPopupMenu();
         btnLeaveGroup = new javax.swing.JMenuItem();
+        btnViewGroup = new javax.swing.JMenuItem();
         jPopupMenuRequest = new javax.swing.JPopupMenu();
         btnAccept = new javax.swing.JMenuItem();
         btnReject = new javax.swing.JMenuItem();
@@ -216,12 +271,12 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel6 = new javax.swing.JPanel();
         jScrollPane4 = new javax.swing.JScrollPane();
         listRequest = new javax.swing.JList<>();
-        btnListFriend = new javax.swing.JButton();
+        jPanel8 = new javax.swing.JPanel();
+        jScrollPane5 = new javax.swing.JScrollPane();
+        listBlock = new javax.swing.JList<>();
+        btnListUser = new javax.swing.JButton();
         btnListGroup = new javax.swing.JButton();
         jPanel3 = new javax.swing.JPanel();
-        jPanel5 = new javax.swing.JPanel();
-        lblName = new javax.swing.JLabel();
-        jButton2 = new javax.swing.JButton();
         jScrollPane3 = new javax.swing.JScrollPane();
         pnBody = new javax.swing.JPanel();
         jPanel7 = new javax.swing.JPanel();
@@ -229,6 +284,8 @@ public class Dashboard extends javax.swing.JFrame {
         txtMessage = new javax.swing.JTextField();
         btnEmoij = new javax.swing.JButton();
         btnSend = new javax.swing.JButton();
+        lblName = new javax.swing.JLabel();
+        jButton2 = new javax.swing.JButton();
 
         btnBlock.setText("Block");
         btnBlock.setActionCommand("");
@@ -252,6 +309,14 @@ public class Dashboard extends javax.swing.JFrame {
         });
         jPopupMenuFriends.add(btnView);
 
+        btnHuyKB.setText("Reject");
+        btnHuyKB.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnHuyKBActionPerformed(evt);
+            }
+        });
+        jPopupMenuFriends.add(btnHuyKB);
+
         btnLeaveGroup.setText("Leave Group");
         btnLeaveGroup.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -259,6 +324,14 @@ public class Dashboard extends javax.swing.JFrame {
             }
         });
         jPopupMenuGroups.add(btnLeaveGroup);
+
+        btnViewGroup.setText("View Group");
+        btnViewGroup.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnViewGroupActionPerformed(evt);
+            }
+        });
+        jPopupMenuGroups.add(btnViewGroup);
 
         btnAccept.setText("Accept");
         btnAccept.addActionListener(new java.awt.event.ActionListener() {
@@ -279,8 +352,9 @@ public class Dashboard extends javax.swing.JFrame {
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jSplitPane1.setDividerLocation(250);
+        jSplitPane1.setPreferredSize(new java.awt.Dimension(2000, 596));
 
-        jPanel2.setPreferredSize(new java.awt.Dimension(300, 475));
+        jPanel2.setPreferredSize(new java.awt.Dimension(500, 475));
 
         lblAvt.setText("Avt");
 
@@ -304,6 +378,9 @@ public class Dashboard extends javax.swing.JFrame {
             public String getElementAt(int i) { return strings[i]; }
         });
         listFriend.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                listFriendMouseClicked(evt);
+            }
             public void mouseReleased(java.awt.event.MouseEvent evt) {
                 listFriendMouseReleased(evt);
             }
@@ -314,13 +391,13 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel1.setLayout(jPanel1Layout);
         jPanel1Layout.setHorizontalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 247, Short.MAX_VALUE)
         );
         jPanel1Layout.setVerticalGroup(
             jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel1Layout.createSequentialGroup()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 432, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 12, Short.MAX_VALUE))
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 408, Short.MAX_VALUE)
+                .addContainerGap())
         );
 
         jTabbedPane1.addTab("Friends", jPanel1);
@@ -343,11 +420,11 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel4.setLayout(jPanel4Layout);
         jPanel4Layout.setHorizontalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 247, Short.MAX_VALUE)
         );
         jPanel4Layout.setVerticalGroup(
             jPanel4Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 444, Short.MAX_VALUE)
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 414, Short.MAX_VALUE)
         );
 
         jTabbedPane1.addTab("Groups", jPanel4);
@@ -368,19 +445,39 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel6.setLayout(jPanel6Layout);
         jPanel6Layout.setHorizontalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 250, Short.MAX_VALUE)
+            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 247, Short.MAX_VALUE)
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 444, Short.MAX_VALUE)
+            .addComponent(jScrollPane4, javax.swing.GroupLayout.DEFAULT_SIZE, 414, Short.MAX_VALUE)
         );
 
         jTabbedPane1.addTab("Friend Request", jPanel6);
 
-        btnListFriend.setText("List Friend");
-        btnListFriend.addActionListener(new java.awt.event.ActionListener() {
+        listBlock.setModel(new javax.swing.AbstractListModel<String>() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public String getElementAt(int i) { return strings[i]; }
+        });
+        jScrollPane5.setViewportView(listBlock);
+
+        javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
+        jPanel8.setLayout(jPanel8Layout);
+        jPanel8Layout.setHorizontalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 247, Short.MAX_VALUE)
+        );
+        jPanel8Layout.setVerticalGroup(
+            jPanel8Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(jScrollPane5, javax.swing.GroupLayout.DEFAULT_SIZE, 414, Short.MAX_VALUE)
+        );
+
+        jTabbedPane1.addTab("Friends Block", jPanel8);
+
+        btnListUser.setText("List User");
+        btnListUser.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnListFriendActionPerformed(evt);
+                btnListUserActionPerformed(evt);
             }
         });
 
@@ -401,67 +498,42 @@ public class Dashboard extends javax.swing.JFrame {
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(lblAvt, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(btnCreateGroup)
-                .addContainerGap())
-            .addComponent(jTabbedPane1)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addComponent(btnListFriend)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(btnListGroup)
-                .addGap(16, 16, 16))
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
+                        .addGroup(javax.swing.GroupLayout.Alignment.LEADING, jPanel2Layout.createSequentialGroup()
+                            .addContainerGap()
+                            .addComponent(lblAvt, javax.swing.GroupLayout.PREFERRED_SIZE, 37, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                            .addComponent(btnCreateGroup))
+                        .addComponent(jTabbedPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 247, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(jPanel2Layout.createSequentialGroup()
+                        .addGap(27, 27, 27)
+                        .addComponent(btnListUser)
+                        .addGap(49, 49, 49)
+                        .addComponent(btnListGroup)))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
-                .addGap(15, 15, 15)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGap(11, 11, 11)
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addComponent(lblAvt)
                     .addComponent(btnCreateGroup))
                 .addGap(18, 18, 18)
                 .addComponent(jTabbedPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 479, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(btnListFriend)
-                    .addComponent(btnListGroup))
-                .addContainerGap(26, Short.MAX_VALUE))
+                .addGroup(jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(btnListGroup)
+                    .addComponent(btnListUser))
+                .addContainerGap(30, Short.MAX_VALUE))
         );
 
         jTabbedPane1.getAccessibleContext().setAccessibleName("");
 
         jSplitPane1.setLeftComponent(jPanel2);
 
-        lblName.setText("Name/ Group");
-
-        jButton2.setText("jButton2");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
-            }
-        });
-
-        javax.swing.GroupLayout jPanel5Layout = new javax.swing.GroupLayout(jPanel5);
-        jPanel5.setLayout(jPanel5Layout);
-        jPanel5Layout.setHorizontalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addComponent(jButton2)
-                .addGap(38, 38, 38))
-        );
-        jPanel5Layout.setVerticalGroup(
-            jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel5Layout.createSequentialGroup()
-                .addGap(16, 16, 16)
-                .addGroup(jPanel5Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton2))
-                .addContainerGap(16, Short.MAX_VALUE))
-        );
+        jPanel3.setPreferredSize(new java.awt.Dimension(1000, 596));
 
         pnBody.setLayout(new javax.swing.BoxLayout(pnBody, javax.swing.BoxLayout.Y_AXIS));
         jScrollPane3.setViewportView(pnBody);
@@ -508,7 +580,7 @@ public class Dashboard extends javax.swing.JFrame {
                     .addComponent(txtMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 277, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addComponent(btnSend)
-                .addContainerGap(44, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
         jPanel7Layout.setVerticalGroup(
             jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -521,26 +593,41 @@ public class Dashboard extends javax.swing.JFrame {
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnSendFile)
                     .addComponent(btnEmoij))
-                .addContainerGap(50, Short.MAX_VALUE))
+                .addContainerGap(44, Short.MAX_VALUE))
         );
+
+        lblName.setText("Name/ Group");
+
+        jButton2.setText("jButton2");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout jPanel3Layout = new javax.swing.GroupLayout(jPanel3);
         jPanel3.setLayout(jPanel3Layout);
         jPanel3Layout.setHorizontalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
-                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING, false)
-                    .addComponent(jPanel7, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jPanel5, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(jScrollPane3, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.PREFERRED_SIZE, 419, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(0, 0, Short.MAX_VALUE))
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                    .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 453, Short.MAX_VALUE)
+                    .addComponent(jPanel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addGroup(jPanel3Layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(jButton2)))
+                .addContainerGap(40, Short.MAX_VALUE))
         );
         jPanel3Layout.setVerticalGroup(
             jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel3Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jPanel5, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jButton2))
+                .addGap(44, 44, 44)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 370, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(jPanel7, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
@@ -553,13 +640,11 @@ public class Dashboard extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addComponent(jSplitPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 658, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(43, Short.MAX_VALUE))
+            .addComponent(jSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 751, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jSplitPane1)
+            .addComponent(jSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
 
         pack();
@@ -567,26 +652,53 @@ public class Dashboard extends javax.swing.JFrame {
 
     private void btnViewActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnViewActionPerformed
         // TODO add your handling code here:
-        // 1. Lấy user đang chọn
-        String selectedUser = listFriend.getSelectedValue();
-
-        if (selectedUser != null) {
-            // 2. Mở form Profile hoặc hiển thị thông tin
-            // Ví dụ: new ProfileView(selectedUser).setVisible(true);
-            javax.swing.JOptionPane.showMessageDialog(this, "Đang xem profile của: " + selectedUser);
+        String selected = listFriend.getSelectedValue();
+        if (selected == null) {
+            return;
         }
+
+// selected = "5 - Minh Hau"
+        String idStr = selected.split("-")[0].trim(); // "5"
+
+        int friendId = Integer.parseInt(idStr);
+
+        ViewProfileFriend dialog
+                = new ViewProfileFriend(this, true, friendId);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+
+
     }//GEN-LAST:event_btnViewActionPerformed
 
     private void btnBlockActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBlockActionPerformed
         // TODO add your handling code here:
         // Lấy tên người đang bị chọn trong List
-        String selectedUser = listFriend.getSelectedValue();
+        String selected = listFriend.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
 
-        if (selectedUser != null) {
-            // Code gửi lệnh chặn lên Server (Sau này sẽ viết)
-            // Ví dụ: client.sendRequest("BLOCK;" + selectedUser);
+        String[] parts = selected.split(" - ");
+        if (parts.length < 2) {
+            return;
+        }
 
-            javax.swing.JOptionPane.showMessageDialog(this, "Đã chặn user: " + selectedUser);
+        int friendId;
+        try {
+            friendId = Integer.parseInt(parts[0].trim());
+        } catch (NumberFormatException e) {
+            return;
+        }
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("BLOCK_FRIEND;" + myEmail + ";" + friendId);
+
+        if ("BLOCK_SUCCESS".equals(res)) {
+            JOptionPane.showMessageDialog(this, "Đã chặn " + parts[1]);
+            loadFriends();
+            loadBlockedFriends();
+        } else {
+            JOptionPane.showMessageDialog(this, "Chặn thất bại");
         }
     }//GEN-LAST:event_btnBlockActionPerformed
 
@@ -621,22 +733,29 @@ public class Dashboard extends javax.swing.JFrame {
 
     private void btnSendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendActionPerformed
         // TODO add your handling code here:
-        if (currentGroupId == -1) {
-            JOptionPane.showMessageDialog(this, "Chưa chọn group");
-            return;
-        }
-
         String text = txtMessage.getText().trim();
         if (text.isEmpty()) {
             return;
         }
 
-        String res = ClientSocket.getInstance()
-                .sendRequest("SEND_GROUP;" + myEmail + ";" + currentGroupId + ";" + text);
+        if (currentFriendId != -1) { // chat riêng
+            String res = ClientSocket.getInstance()
+                    .sendRequest("SEND_PRIVATE;" + myEmail + ";" + currentFriendId + ";" + text);
 
-        if (res.startsWith("SEND_GROUP_SUCCESS")) {
-            addMessage("Me: " + text, true);
-            txtMessage.setText("");
+            if (res.startsWith("SEND_PRIVATE_SUCCESS")) {
+                addMessage("Me: " + text, true);
+                txtMessage.setText("");
+            }
+        } else if (currentGroupId != -1) { // chat group
+            String res = ClientSocket.getInstance()
+                    .sendRequest("SEND_GROUP;" + myEmail + ";" + currentGroupId + ";" + text);
+
+            if (res.startsWith("SEND_GROUP_SUCCESS")) {
+                addMessage("Me: " + text, true);
+                txtMessage.setText("");
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Chưa chọn friend hoặc group để chat");
         }
     }//GEN-LAST:event_btnSendActionPerformed
 
@@ -804,13 +923,13 @@ public class Dashboard extends javax.swing.JFrame {
 
     }//GEN-LAST:event_btnListGroupMouseClicked
 
-    private void btnListFriendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListFriendActionPerformed
+    private void btnListUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListUserActionPerformed
         // TODO add your handling code here:
         FriendDialog dlg
                 = new FriendDialog(this, myEmail);
         dlg.setLocationRelativeTo(this);
         dlg.setVisible(true);
-    }//GEN-LAST:event_btnListFriendActionPerformed
+    }//GEN-LAST:event_btnListUserActionPerformed
 
     private void listRequestMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listRequestMouseReleased
         // TODO add your handling code here:
@@ -846,7 +965,7 @@ public class Dashboard extends javax.swing.JFrame {
         if (res.equals("ACCEPT_SUCCESS")) {
             JOptionPane.showMessageDialog(this, "Đã chấp nhận");
             loadFriendRequests();
-            // loadFriends(); (nếu có)
+            loadFriends();
         }
     }//GEN-LAST:event_btnAcceptActionPerformed
 
@@ -872,27 +991,144 @@ public class Dashboard extends javax.swing.JFrame {
 
     }//GEN-LAST:event_btnSendFileActionPerformed
 
+    private void listFriendMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listFriendMouseClicked
+        // TODO add your handling code here:
+        String selected = listFriend.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
+
+        // selected = "3 - Huệ"
+        String[] parts = selected.split(" - ");
+        if (parts.length < 2) {
+            return;
+        }
+
+        try {
+            currentFriendId = Integer.parseInt(parts[0].trim());
+            currentFriendName = parts[1].trim();
+        } catch (NumberFormatException e) {
+            return;
+        }
+
+        lblName.setText(currentFriendName);
+
+        // Clear chat
+        pnBody.removeAll();
+        pnBody.revalidate();
+        pnBody.repaint();
+
+        // Load lịch sử chat
+        String res = ClientSocket.getInstance()
+                .sendRequest("GET_PRIVATE_MESSAGES;" + myEmail + ";" + currentFriendId);
+
+        if (res.startsWith("PRIVATE_MESSAGES")) {
+            String[] msgs = res.split(";");
+            for (int i = 1; i < msgs.length; i++) {
+                String[] msgParts = msgs[i].split("\\|", 4);
+                if (msgParts.length < 4) {
+                    continue;
+                }
+
+                String senderEmail = msgParts[1];
+                String senderName = msgParts[2];
+                String content = msgParts[3];
+
+                String displayName = senderEmail.equals(myEmail) ? "Me" : senderName;
+                addMessage(displayName + ": " + content, senderEmail.equals(myEmail));
+            }
+        }
+    }//GEN-LAST:event_listFriendMouseClicked
+
+    private void btnHuyKBActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnHuyKBActionPerformed
+        // TODO add your handling code here:
+
+        String selected = listFriend.getSelectedValue();
+        if (selected == null) {
+            return;
+        }
+
+        // selected = "3 - Huệ"
+        String[] parts = selected.split(" - ");
+
+        if (parts.length < 1) {
+            JOptionPane.showMessageDialog(this, "Dữ liệu không hợp lệ");
+            return;
+        }
+
+        int friendId;
+        try {
+            friendId = Integer.parseInt(parts[0].trim());
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Không lấy được ID bạn bè");
+            return;
+        }
+
+        String res = ClientSocket.getInstance()
+                .sendRequest("REMOVE_FRIEND;" + myEmail + ";" + friendId);
+
+        if ("REMOVE_FRIEND_SUCCESS".equals(res)) {
+            JOptionPane.showMessageDialog(this, "Đã hủy kết bạn");
+            loadFriends();
+        } else {
+            JOptionPane.showMessageDialog(this, "Hủy kết bạn thất bại");
+        }
+
+    }//GEN-LAST:event_btnHuyKBActionPerformed
+
+    private void btnViewGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnViewGroupActionPerformed
+        // TODO add your handling code here:
+        String selected = listGroup.getSelectedValue();
+    if (selected == null) {
+        JOptionPane.showMessageDialog(this, "Chưa chọn group");
+        return;
+    }
+
+    // selected = "3:Java Group"
+    String[] parts = selected.split(":");
+    if (parts.length < 2) {
+        JOptionPane.showMessageDialog(this, "Dữ liệu group không hợp lệ");
+        return;
+    }
+
+    int groupId;
+    try {
+        groupId = Integer.parseInt(parts[0].trim());
+    } catch (NumberFormatException e) {
+        JOptionPane.showMessageDialog(this, "Không lấy được groupId");
+        return;
+    }
+
+    // 👉 MỞ DIALOG VIEW GROUP
+    ViewGroupInfo dialog =
+            new ViewGroupInfo(this, true, groupId);
+    dialog.setLocationRelativeTo(this);
+    dialog.setVisible(true);
+    }//GEN-LAST:event_btnViewGroupActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem btnAccept;
     private javax.swing.JMenuItem btnBlock;
     private javax.swing.JButton btnCreateGroup;
     private javax.swing.JButton btnEmoij;
+    private javax.swing.JMenuItem btnHuyKB;
     private javax.swing.JMenuItem btnLeaveGroup;
-    private javax.swing.JButton btnListFriend;
     private javax.swing.JButton btnListGroup;
+    private javax.swing.JButton btnListUser;
     private javax.swing.JMenuItem btnReject;
     private javax.swing.JButton btnSend;
     private javax.swing.JButton btnSendFile;
     private javax.swing.JMenuItem btnView;
+    private javax.swing.JMenuItem btnViewGroup;
     private javax.swing.JButton jButton2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel4;
-    private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
+    private javax.swing.JPanel jPanel8;
     private javax.swing.JPopupMenu jPopupMenuFriends;
     private javax.swing.JPopupMenu jPopupMenuGroups;
     private javax.swing.JPopupMenu jPopupMenuRequest;
@@ -900,10 +1136,12 @@ public class Dashboard extends javax.swing.JFrame {
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
     private javax.swing.JScrollPane jScrollPane4;
+    private javax.swing.JScrollPane jScrollPane5;
     private javax.swing.JSplitPane jSplitPane1;
     private javax.swing.JTabbedPane jTabbedPane1;
     private javax.swing.JLabel lblAvt;
     private javax.swing.JLabel lblName;
+    private javax.swing.JList<String> listBlock;
     private javax.swing.JList<String> listFriend;
     private javax.swing.JList<String> listGroup;
     private javax.swing.JList<String> listRequest;
