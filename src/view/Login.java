@@ -4,6 +4,7 @@
  */
 package view;
 
+import javax.swing.JOptionPane;
 import network.ClientSocket;
 
 /**
@@ -172,28 +173,30 @@ public class Login extends javax.swing.JFrame {
 
     private void btnLoginActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLoginActionPerformed
         // TODO add your handling code here:
+       
         String email = txtEmail.getText();
     String pass = new String(txtPass.getPassword());
     
     // Gửi lệnh: LOGIN;email;pass
     String response = network.ClientSocket.getInstance().sendRequest("LOGIN;" + email + ";" + pass);
     
-    // Server trả về: LOGIN_SUCCESS;fullname;gender;dob
-    if (response.startsWith("LOGIN_SUCCESS")) {
-        String[] data = response.split(";");
-       String useName = data[1];
-       String fullName = data[2];
-        
-        new Dashboard(email, fullName).setVisible(true);
-        this.dispose();
-        System.out.println("Server response: " + response);
 
-        // Mở Form Chat chính hoặc Menu, truyền thông tin User vào
-        // new MainMenu(email, fullName, gender, dob).setVisible(true);
-        
-    } else {
-        javax.swing.JOptionPane.showMessageDialog(this, "Đăng nhập thất bại (Sai pass hoặc chưa OTP).");
-    }
+  if (response.startsWith("LOGIN_SUCCESS")) {
+      System.out.println("LOGIN RESPONSE = " + response);
+
+    String[] data = response.split(";");
+
+    int userId = Integer.parseInt(data[1]); // ✅ ID
+    String emailRes = data[2];                 // ✅ EMAIL
+    String fullName = data[3];              // ✅ NAME
+
+    new Dashboard(userId, emailRes, fullName).setVisible(true);
+    this.dispose();
+
+} else {
+      JOptionPane.showMessageDialog(this, "Đăng nhập thất bại");
+}
+
     }//GEN-LAST:event_btnLoginActionPerformed
 
     private void txtAccountMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_txtAccountMouseClicked

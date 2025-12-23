@@ -14,15 +14,18 @@ import network.ClientSocket;
  */
 public class ViewGroupInfo extends javax.swing.JDialog {
     private int groupId;
+    private int currentUserId;
+
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(ViewGroupInfo.class.getName());
 
     /**
      * Creates new form ViewGroupInfo
      */
-  public ViewGroupInfo(java.awt.Frame parent, boolean modal, int groupId) {
+public ViewGroupInfo(java.awt.Frame parent, boolean modal, int groupId, int currentUserId) {
     super(parent, modal);
     this.groupId = groupId;
+    this.currentUserId = currentUserId;
     initComponents();
     loadGroupInfo();
 }
@@ -79,6 +82,46 @@ public class ViewGroupInfo extends javax.swing.JDialog {
     }
 }
 
+private void removeSelectedMember() {
+    int row = txtMember.getSelectedRow();
+    if (row == -1) return;
+
+    int targetUserId = (int) txtMember.getValueAt(row, 0);
+    String targetName = txtMember.getValueAt(row, 1).toString();
+
+    // ❌ Không cho tự xóa chính mình
+    if (targetUserId == currentUserId) {
+        JOptionPane.showMessageDialog(this, "Bạn không thể tự xóa mình");
+        return;
+    }
+
+    int confirm = JOptionPane.showConfirmDialog(
+        this,
+        "Bạn có chắc muốn xóa " + targetName + " khỏi nhóm?",
+        "Xác nhận",
+        JOptionPane.YES_NO_OPTION
+    );
+
+    if (confirm != JOptionPane.YES_OPTION) return;
+
+    try {
+        ClientSocket client = ClientSocket.getInstance();
+        String response = client.sendRequest(
+            "REMOVE_GROUP_MEMBER;" + groupId + ";" + currentUserId + ";" + targetUserId
+        );
+
+        if ("REMOVE_MEMBER_SUCCESS".equals(response)) {
+            JOptionPane.showMessageDialog(this, "Đã xóa thành viên");
+            loadGroupInfo();
+        } else if ("NOT_ADMIN".equals(response)) {
+            JOptionPane.showMessageDialog(this, "Bạn không có quyền xóa thành viên");
+        } else {
+            JOptionPane.showMessageDialog(this, "Xóa thất bại");
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
 
 
     /**
@@ -113,6 +156,10 @@ public class ViewGroupInfo extends javax.swing.JDialog {
         jLabel3.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
         jLabel3.setText("Created By:");
 
+        txtNumber.setEditable(false);
+
+        txtCreatedBy.setEditable(false);
+
         txtMember.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
 
@@ -124,9 +171,21 @@ public class ViewGroupInfo extends javax.swing.JDialog {
             Class[] types = new Class [] {
                 java.lang.Integer.class, java.lang.String.class, java.lang.String.class
             };
+            boolean[] canEdit = new boolean [] {
+                false, false, false
+            };
 
             public Class getColumnClass(int columnIndex) {
                 return types [columnIndex];
+            }
+
+            public boolean isCellEditable(int rowIndex, int columnIndex) {
+                return canEdit [columnIndex];
+            }
+        });
+        txtMember.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                txtMemberMouseClicked(evt);
             }
         });
         jScrollPane1.setViewportView(txtMember);
@@ -146,9 +205,8 @@ public class ViewGroupInfo extends javax.swing.JDialog {
                         .addGap(18, 18, 18)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                             .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)
-                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                                .addComponent(txtNumber)
-                                .addComponent(txtCreatedBy, javax.swing.GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE))))
+                            .addComponent(txtNumber)
+                            .addComponent(txtCreatedBy, javax.swing.GroupLayout.DEFAULT_SIZE, 264, Short.MAX_VALUE)))
                     .addGroup(layout.createSequentialGroup()
                         .addGap(177, 177, 177)
                         .addComponent(txtNameGroup, javax.swing.GroupLayout.PREFERRED_SIZE, 105, javax.swing.GroupLayout.PREFERRED_SIZE)))
@@ -176,6 +234,21 @@ public class ViewGroupInfo extends javax.swing.JDialog {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
+
+    private void txtMemberMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_txtMemberMouseClicked
+        // TODO add your handling code here:
+        if (evt.getClickCount() == 2 && !evt.isConsumed()) {
+        evt.consume();
+
+        int row = txtMember.rowAtPoint(evt.getPoint());
+        if (row == -1) return;
+
+        // ⚠️ BẮT BUỘC set selection
+        txtMember.setRowSelectionInterval(row, row);
+
+        removeSelectedMember();
+    }
+    }//GEN-LAST:event_txtMemberMouseClicked
 
 
 

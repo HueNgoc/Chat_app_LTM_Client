@@ -30,26 +30,42 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import network.ClientSocket;
 import view.BubblePanel;
+import voice.VoiceCall;
 
 /**
  *
  * @author Admin
  */
 public class Dashboard extends javax.swing.JFrame {
-
+private FriendDialog dlg;
     private String myEmail;
     private String myName;
+    private int currentUserId;
     private int currentGroupId = -1;
     private int currentFriendId = -1; // id của friend đang chat
     private String currentFriendName = ""; // tên friend đang chat
+
+    // call 
+    private VoiceCall voiceCall;
+    private boolean calling = false;
+    private static final int VOICE_PORT = 5555;
 
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(Dashboard.class.getName());
 
     /**
      * Creates new form Dashboard
      */
-    public Dashboard(String email, String name) {
+    
+    private static Dashboard instance;
+
+public static Dashboard getInstance() {
+    return instance;
+}
+
+    public Dashboard(int userId,String email, String name) {
         initComponents();
+        instance = this;
+         this.currentUserId = userId;
         this.myEmail = email;
         this.myName = name;
 
@@ -225,22 +241,34 @@ public class Dashboard extends javax.swing.JFrame {
     }
 
     private void loadBlockedFriends() {
-        String res = ClientSocket.getInstance()
-                .sendRequest("GET_BLOCKED_FRIENDS;" + myEmail);
+    String res = ClientSocket.getInstance()
+            .sendRequest("GET_BLOCKED_FRIENDS;" + myEmail);
 
-        if (!res.startsWith("BLOCK_LIST")) {
-            return;
-        }
+    System.out.println("BLOCKED RESPONSE = " + res);
 
-        DefaultListModel<String> model = new DefaultListModel<>();
-        String[] arr = res.split(";");
+    DefaultListModel<String> model = new DefaultListModel<>();
 
-        for (int i = 1; i < arr.length; i++) {
-            model.addElement(arr[i]); // id:name hoặc name
-        }
-
+    if (res == null || !res.startsWith("BLOCKED_LIST")) {
         listBlock.setModel(model);
+        return;
     }
+
+    String[] arr = res.split(";");
+    for (int i = 1; i < arr.length; i++) {
+        // arr[i] = id:name:email
+        String[] info = arr[i].split(":");
+        if (info.length >= 2) {
+            String id = info[0];
+        String name = info[1];
+
+        // 👇 CHỈ HIỆN ID + TÊN
+        model.addElement(id + ":" + name);
+        }
+    }
+
+    listBlock.setModel(model);
+}
+
 
     // file
     private void addFileMessage(String sender, String fileName,
@@ -344,6 +372,8 @@ public class Dashboard extends javax.swing.JFrame {
         jPopupMenuRequest = new javax.swing.JPopupMenu();
         btnAccept = new javax.swing.JMenuItem();
         btnReject = new javax.swing.JMenuItem();
+        jPopupMenuRemoveBlock = new javax.swing.JPopupMenu();
+        btnRemoveBlock = new javax.swing.JMenuItem();
         jSplitPane1 = new javax.swing.JSplitPane();
         jPanel2 = new javax.swing.JPanel();
         lblAvt = new javax.swing.JLabel();
@@ -372,7 +402,7 @@ public class Dashboard extends javax.swing.JFrame {
         btnEmoij = new javax.swing.JButton();
         btnSend = new javax.swing.JButton();
         lblName = new javax.swing.JLabel();
-        jButton2 = new javax.swing.JButton();
+        btnCall = new javax.swing.JButton();
 
         btnBlock.setText("Block");
         btnBlock.setActionCommand("");
@@ -436,6 +466,14 @@ public class Dashboard extends javax.swing.JFrame {
         });
         jPopupMenuRequest.add(btnReject);
 
+        btnRemoveBlock.setText("Remove Block");
+        btnRemoveBlock.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRemoveBlockActionPerformed(evt);
+            }
+        });
+        jPopupMenuRemoveBlock.add(btnRemoveBlock);
+
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
         jSplitPane1.setDividerLocation(250);
@@ -453,6 +491,11 @@ public class Dashboard extends javax.swing.JFrame {
         });
 
         jTabbedPane1.setToolTipText("");
+        jTabbedPane1.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                jTabbedPane1StateChanged(evt);
+            }
+        });
         jTabbedPane1.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent evt) {
                 jTabbedPane1MouseClicked(evt);
@@ -536,6 +579,11 @@ public class Dashboard extends javax.swing.JFrame {
 
         jTabbedPane1.addTab("Friend Request", jPanel6);
 
+        listBlock.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseReleased(java.awt.event.MouseEvent evt) {
+                listBlockMouseReleased(evt);
+            }
+        });
         jScrollPane5.setViewportView(listBlock);
 
         javax.swing.GroupLayout jPanel8Layout = new javax.swing.GroupLayout(jPanel8);
@@ -675,10 +723,10 @@ public class Dashboard extends javax.swing.JFrame {
 
         lblName.setText("Name/ Group");
 
-        jButton2.setText("jButton2");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
+        btnCall.setText("Call");
+        btnCall.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
+                btnCallActionPerformed(evt);
             }
         });
 
@@ -694,7 +742,7 @@ public class Dashboard extends javax.swing.JFrame {
                         .addContainerGap()
                         .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 110, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jButton2)
+                        .addComponent(btnCall)
                         .addGap(21, 21, 21)))
                 .addContainerGap(43, Short.MAX_VALUE))
         );
@@ -704,7 +752,7 @@ public class Dashboard extends javax.swing.JFrame {
                 .addContainerGap()
                 .addGroup(jPanel3Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(lblName, javax.swing.GroupLayout.PREFERRED_SIZE, 30, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jButton2))
+                    .addComponent(btnCall))
                 .addGap(44, 44, 44)
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 370, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -774,7 +822,9 @@ public class Dashboard extends javax.swing.JFrame {
         if ("BLOCK_SUCCESS".equals(res)) {
             JOptionPane.showMessageDialog(this, "Đã chặn " + parts[1]);
             loadFriends();
+            jTabbedPane1.setSelectedIndex(3);
             loadBlockedFriends();
+            
         } else {
             JOptionPane.showMessageDialog(this, "Chặn thất bại");
         }
@@ -860,9 +910,56 @@ public class Dashboard extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnEmoijActionPerformed
 
-    private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
+    private void btnCallActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCallActionPerformed
         // TODO add your handling code here:
-    }//GEN-LAST:event_jButton2ActionPerformed
+        if (currentFriendId == -1) {
+        JOptionPane.showMessageDialog(this, "Chỉ gọi được cho friend");
+        return;
+    }
+
+    try {
+        if (!calling) {
+            // 1️⃣ Lấy IP friend từ server
+            String res = ClientSocket.getInstance()
+                    .sendRequest("GET_FRIEND_IP;" + currentFriendId);
+
+            if (!res.startsWith("FRIEND_IP")) {
+                JOptionPane.showMessageDialog(this, "Không lấy được IP friend");
+                return;
+            }
+
+            String friendIP = res.split(";")[1];
+System.out.println("Friend IP = " + friendIP);
+            voiceCall = new VoiceCall();
+
+            // 2️⃣ Mở receiver trước (để friend gọi ngược lại được)
+            new Thread(() -> {
+                try {
+                    voiceCall.startReceiver(VOICE_PORT);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }).start();
+
+            // 3️⃣ Gọi sang friend
+            Thread.sleep(300);
+            voiceCall.startCaller(friendIP, VOICE_PORT);
+
+            btnCall.setText("End Call");
+            calling = true;
+
+        } else {
+            // END CALL
+            voiceCall.stop();
+            btnCall.setText("Call");
+            calling = false;
+        }
+
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this, "Không thể gọi");
+    }
+    }//GEN-LAST:event_btnCallActionPerformed
 
     private void btnCreateGroupActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCreateGroupActionPerformed
         // TODO add your handling code here:
@@ -922,12 +1019,18 @@ public class Dashboard extends javax.swing.JFrame {
 
     private void jTabbedPane1MouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_jTabbedPane1MouseClicked
         // TODO add your handling code here:
-        int index = jTabbedPane1.getSelectedIndex();
-        String title = jTabbedPane1.getTitleAt(index);
-
-        if (title.equals("Friend Request")) {
-            loadFriendRequests();
-        }
+//        int index = jTabbedPane1.getSelectedIndex();
+//        String title = jTabbedPane1.getTitleAt(index);
+//
+//        if (title.equals("Friend Request")) {
+//            loadFriendRequests();
+//        } else if (title.equals("Friends Block")) {
+//        loadBlockedFriends();
+//    } else if (title.equals("Friends")) {
+//    loadFriends();
+//} else if (title.equals("Groups")) {
+//    loadGroups();
+//}
 
     }//GEN-LAST:event_jTabbedPane1MouseClicked
 
@@ -1031,8 +1134,7 @@ public class Dashboard extends javax.swing.JFrame {
 
     private void btnListUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListUserActionPerformed
         // TODO add your handling code here:
-        FriendDialog dlg
-                = new FriendDialog(this, myEmail);
+     dlg = new FriendDialog(this, myEmail);
         dlg.setLocationRelativeTo(this);
         dlg.setVisible(true);
     }//GEN-LAST:event_btnListUserActionPerformed
@@ -1115,7 +1217,7 @@ public class Dashboard extends javax.swing.JFrame {
 //                    file
 //            );
 //
-////            
+        ////            
 //// Trong hàm btnSendFileActionPerformed
 //            if ("SEND_FILE_SUCCESS".equals(res)) {
 //
@@ -1175,103 +1277,107 @@ public class Dashboard extends javax.swing.JFrame {
 //            }
 //        }).start();
 if (currentGroupId == -1 && currentFriendId == -1) {
-        JOptionPane.showMessageDialog(this, "Chưa chọn friend hoặc group");
-        return;
-    }
+            JOptionPane.showMessageDialog(this, "Chưa chọn friend hoặc group");
+            return;
+        }
 
-    JFileChooser chooser = new JFileChooser();
-    if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
-        return;
-    }
+        JFileChooser chooser = new JFileChooser();
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
 
-    File file = chooser.getSelectedFile();
+        File file = chooser.getSelectedFile();
 
-    new Thread(() -> {
-        ClientSocket socket = ClientSocket.getInstance();
-        String res = "";
+        new Thread(() -> {
+            ClientSocket socket = ClientSocket.getInstance();
+            String res = "";
 
-        try {
-            if (currentFriendId != -1) {
-                // Gửi file cho friend riêng
-                res = socket.sendFilePrivate(myEmail, currentFriendId, file);
-            } else if (currentGroupId != -1) {
-                // Gửi file cho group
-                res = socket.sendFileGroup(myEmail, currentGroupId, file);
-            }
+            try {
+                if (currentFriendId != -1) {
+                    // Gửi file cho friend riêng
+                    res = socket.sendFilePrivate(myEmail, currentFriendId, file);
+                } else if (currentGroupId != -1) {
+                    // Gửi file cho group
+                    res = socket.sendFileGroup(myEmail, currentGroupId, file);
+                }
 
-            if ("SEND_FILE_SUCCESS".equals(res)) {
-              
-                // Reload chat sau khi gửi file
-                SwingUtilities.invokeLater(() -> {
-                    pnBody.removeAll();
-                    String msg = "";
+                if ("SEND_FILE_SUCCESS".equals(res)) {
 
-                    if (currentFriendId != -1) {
-                        msg = socket.sendRequest("GET_PRIVATE_MESSAGES;" + myEmail + ";" + currentFriendId);
-                        if (msg.startsWith("PRIVATE_MESSAGES")) {
-                            String[] msgs = msg.split(";");
-                            for (int i = 1; i < msgs.length; i++) {
-                                String[] parts = msgs[i].split("\\|"); // id|email|name|type|content/fileName
-                                if (parts.length < 4) continue;
-                                String senderEmail = parts[1];
-                                String senderName = parts[2];
-                                String msgType = parts[3];
-                                boolean isMe = senderEmail.equals(myEmail);
-                                String displayName = isMe ? "Me" : senderName;
+                    // Reload chat sau khi gửi file
+                    SwingUtilities.invokeLater(() -> {
+                        pnBody.removeAll();
+                        String msg = "";
 
-                                if ("File".equals(msgType) && parts.length >= 6) {
-                                    String fileName = parts[4];
-                                    String filePath = parts[5];
-                                    addFileMessage(displayName, fileName, filePath, isMe);
-                                } else if (parts.length >= 5) {
-                                    String content = parts[4];
-                                    addMessage(displayName + ": " + content, isMe);
+                        if (currentFriendId != -1) {
+                            msg = socket.sendRequest("GET_PRIVATE_MESSAGES;" + myEmail + ";" + currentFriendId);
+                            if (msg.startsWith("PRIVATE_MESSAGES")) {
+                                String[] msgs = msg.split(";");
+                                for (int i = 1; i < msgs.length; i++) {
+                                    String[] parts = msgs[i].split("\\|"); // id|email|name|type|content/fileName
+                                    if (parts.length < 4) {
+                                        continue;
+                                    }
+                                    String senderEmail = parts[1];
+                                    String senderName = parts[2];
+                                    String msgType = parts[3];
+                                    boolean isMe = senderEmail.equals(myEmail);
+                                    String displayName = isMe ? "Me" : senderName;
+
+                                    if ("File".equals(msgType) && parts.length >= 6) {
+                                        String fileName = parts[4];
+                                        String filePath = parts[5];
+                                        addFileMessage(displayName, fileName, filePath, isMe);
+                                    } else if (parts.length >= 5) {
+                                        String content = parts[4];
+                                        addMessage(displayName + ": " + content, isMe);
+                                    }
                                 }
-                            }   
-                        }
-                    } else if (currentGroupId != -1) {
-                        msg = socket.sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
-                        // Logic giống như trước
-                        if (msg.startsWith("GROUP_MESSAGES")) {
-                            String[] msgs = msg.split(";");
-                            for (int i = 1; i < msgs.length; i++) {
-                                String[] parts = msgs[i].split("\\|");
-                                if (parts.length < 4) continue;
-                                String senderEmail = parts[1];
-                                String senderName = parts[2];
-                                String msgType = parts[3];
-                                boolean isMe = senderEmail.equals(myEmail);
-                                String displayName = isMe ? "Me" : senderName;
+                            }
+                        } else if (currentGroupId != -1) {
+                            msg = socket.sendRequest("GET_GROUP_MESSAGES;" + currentGroupId);
+                            // Logic giống như trước
+                            if (msg.startsWith("GROUP_MESSAGES")) {
+                                String[] msgs = msg.split(";");
+                                for (int i = 1; i < msgs.length; i++) {
+                                    String[] parts = msgs[i].split("\\|");
+                                    if (parts.length < 4) {
+                                        continue;
+                                    }
+                                    String senderEmail = parts[1];
+                                    String senderName = parts[2];
+                                    String msgType = parts[3];
+                                    boolean isMe = senderEmail.equals(myEmail);
+                                    String displayName = isMe ? "Me" : senderName;
 
-                                if ("File".equals(msgType) && parts.length >= 6) {
-                                    String fileName = parts[4];
-                                    String filePath = parts[5];
-                                    addFileMessage(displayName, fileName, filePath, isMe);
-                                } else if (parts.length >= 5) {
-                                    String content = parts[4];
-                                    addMessage(displayName + ": " + content, isMe);
+                                    if ("File".equals(msgType) && parts.length >= 6) {
+                                        String fileName = parts[4];
+                                        String filePath = parts[5];
+                                        addFileMessage(displayName, fileName, filePath, isMe);
+                                    } else if (parts.length >= 5) {
+                                        String content = parts[4];
+                                        addMessage(displayName + ": " + content, isMe);
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    pnBody.revalidate();
-                    pnBody.repaint();
-                    scrollToBottom();
-                });
-            } else {
-                SwingUtilities.invokeLater(() ->
-                        JOptionPane.showMessageDialog(this, "Gửi file thất bại")
+                        pnBody.revalidate();
+                        pnBody.repaint();
+                        scrollToBottom();
+                    });
+                } else {
+                    SwingUtilities.invokeLater(()
+                            -> JOptionPane.showMessageDialog(this, "Gửi file thất bại")
+                    );
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                SwingUtilities.invokeLater(()
+                        -> JOptionPane.showMessageDialog(this, "Gửi file thất bại")
                 );
             }
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            SwingUtilities.invokeLater(() ->
-                    JOptionPane.showMessageDialog(this, "Gửi file thất bại")
-            );
-        }
-    }).start();
+        }).start();
 
     }//GEN-LAST:event_btnSendFileActionPerformed
 
@@ -1400,15 +1506,95 @@ if (currentGroupId == -1 && currentFriendId == -1) {
 
         // 👉 MỞ DIALOG VIEW GROUP
         ViewGroupInfo dialog
-                = new ViewGroupInfo(this, true, groupId);
+                = new ViewGroupInfo(this, true, groupId,currentUserId);
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }//GEN-LAST:event_btnViewGroupActionPerformed
+
+    private void jTabbedPane1StateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_jTabbedPane1StateChanged
+        // TODO add your handling code here:
+             int index = jTabbedPane1.getSelectedIndex();
+        String title = jTabbedPane1.getTitleAt(index);
+System.out.println("TAB = " + title); 
+        if (title.equals("Friend Request")) {
+            loadFriendRequests();
+        } else if (title.equals("Friends Block")) {
+        loadBlockedFriends();
+    } else if (title.equals("Friends")) {
+    loadFriends();
+} else if (title.equals("Groups")) {
+    loadGroups();
+}
+    }//GEN-LAST:event_jTabbedPane1StateChanged
+
+    private void btnRemoveBlockActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRemoveBlockActionPerformed
+        // TODO add your handling code here:
+        String selected = listBlock.getSelectedValue();
+    if (selected == null) {
+        JOptionPane.showMessageDialog(this, "Chọn user cần bỏ chặn");
+        return;
+    }
+
+    // Format: id:name:email
+    String[] p = selected.split(":");
+
+    int blockedId;
+    try {
+        blockedId = Integer.parseInt(p[0]); // ✅ ĐÚNG: id
+    } catch (NumberFormatException e) {
+        JOptionPane.showMessageDialog(this, "Dữ liệu user không hợp lệ");
+        return;
+    }
+
+    int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Bỏ chặn người dùng này?",
+            "Remove Block",
+            JOptionPane.YES_NO_OPTION
+    );
+
+    if (confirm != JOptionPane.YES_OPTION) return;
+
+    String res = ClientSocket.getInstance()
+            .sendRequest("UNBLOCK_USER;" + myEmail + ";" + blockedId);
+
+    if (res.equals("UNBLOCK_SUCCESS")) {
+        JOptionPane.showMessageDialog(this, "Đã bỏ chặn");
+        loadBlockedFriends();   // reload tab block
+        loadFriends();          // (nếu muốn hiện lại trong Friends)
+        if ( dlg != null && dlg.isShowing()) {
+        dlg.loadUsers(); // ✅ USER HIỆN LẠI NGAY
+    }
+        
+    } else {
+        JOptionPane.showMessageDialog(this, "Bỏ chặn thất bại");
+    }
+    }//GEN-LAST:event_btnRemoveBlockActionPerformed
+
+    private void listBlockMouseReleased(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listBlockMouseReleased
+        // TODO add your handling code here:
+           if (javax.swing.SwingUtilities.isRightMouseButton(evt)) {
+
+            int idx = listBlock.locationToIndex(evt.getPoint());
+
+            if (idx >= 0) {
+                listBlock.setSelectedIndex(idx);
+
+                // hiện popup menu tại vị trí chuột
+                jPopupMenuRemoveBlock.show(
+                        listBlock,
+                        evt.getX(),
+                        evt.getY()
+                );
+            }
+        }
+    }//GEN-LAST:event_listBlockMouseReleased
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JMenuItem btnAccept;
     private javax.swing.JMenuItem btnBlock;
+    private javax.swing.JButton btnCall;
     private javax.swing.JButton btnCreateGroup;
     private javax.swing.JButton btnEmoij;
     private javax.swing.JMenuItem btnHuyKB;
@@ -1416,11 +1602,11 @@ if (currentGroupId == -1 && currentFriendId == -1) {
     private javax.swing.JButton btnListGroup;
     private javax.swing.JButton btnListUser;
     private javax.swing.JMenuItem btnReject;
+    private javax.swing.JMenuItem btnRemoveBlock;
     private javax.swing.JButton btnSend;
     private javax.swing.JButton btnSendFile;
     private javax.swing.JMenuItem btnView;
     private javax.swing.JMenuItem btnViewGroup;
-    private javax.swing.JButton jButton2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
@@ -1430,6 +1616,7 @@ if (currentGroupId == -1 && currentFriendId == -1) {
     private javax.swing.JPanel jPanel8;
     private javax.swing.JPopupMenu jPopupMenuFriends;
     private javax.swing.JPopupMenu jPopupMenuGroups;
+    private javax.swing.JPopupMenu jPopupMenuRemoveBlock;
     private javax.swing.JPopupMenu jPopupMenuRequest;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;

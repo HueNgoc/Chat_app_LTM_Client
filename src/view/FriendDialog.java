@@ -28,7 +28,7 @@ public class FriendDialog extends javax.swing.JDialog {
         loadUsers();
     }
 
-    private void loadUsers() {
+    public  void loadUsers() {
         String res = ClientSocket.getInstance()
                 .sendRequest("GET_NOT_FRIEND_USERS;" + myEmail);
 
